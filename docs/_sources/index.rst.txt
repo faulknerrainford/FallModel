@@ -10,6 +10,8 @@ Model for Mobility and Falls in Agents with Declining Mobility
    :maxdepth: 2
    :caption: Contents:
 
+   setup
+   domain
    code
 
 

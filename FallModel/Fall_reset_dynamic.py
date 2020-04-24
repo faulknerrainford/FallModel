@@ -1,15 +1,23 @@
-from FallModel.Fall_agent import Agent as FallAgent
+from Fall_agent import Agent as FallAgent
 from SPmodelling.Interface import Interface
 from SPmodelling import Reset as FallReset
 
 
 class Reset(FallReset.Reset):
-
+    """
+    Reset database to starting state for next run
+    """
     def __init__(self):
         super(Reset, self).__init__("dynamic4")
 
     @staticmethod
     def set_nodes(tx):
+        """
+
+        :param tx: neo4j database transaction with write privileges.
+
+        :return: None
+        """
         tx.run("CREATE (a:Node {name:'Hos', energy:0.2, modm:-0.1, modc:-0.05})")
         tx.run("CREATE (a:Node {name:'Home', energy:0.3})")
         tx.run("CREATE (a:Node {name:'Social', energy:-0.4, modm:0.05, modc:0.2, modrc:0.2})")

@@ -1,5 +1,6 @@
-from matplotlib.pylab import *
+from matplotlib import pylab as pylab
 import pickle
+import numpy as np
 from matplotlib import pyplot as plt
 from FallModel.Fall_Balancer import timesincedischarge
 from SPmodelling.Interface import Interface
@@ -9,17 +10,27 @@ import specification
 
 
 class Monitor(SPMonitor):
+    """
+    Monitor class extends SPModelling Monitor. It is intended to monitor the database of the model and report and store
+    summary statistics to enable later analysis. It records system interval, intervention interval, capacity of the
+    first intervention node, average number of each fall type before care. It returns a record of these in the raw data
+    and in the form of a graph. It also saves out the logs for all the agents in the system at the end of its run.
+    """
 
     def __init__(self):
+        """
+        Sets up four graph grid for monitoring system.
+        """
         super(Monitor, self).__init__(show_local=False)
+        self.nrecord = None
         self.fig.suptitle("Network Stats over Time")
         # Set up subplots with titles and axes
         self.xlims = (0, 20)
         self.ylims = (0, 12)
-        self.ax1 = subplot2grid((2, 2), (0, 0))
-        self.ax2 = subplot2grid((2, 2), (0, 1))
-        self.ax3 = subplot2grid((2, 2), (1, 0))
-        self.ax4 = subplot2grid((2, 2), (1, 1))
+        self.ax1 = plt.subplot2grid((2, 2), (0, 0))
+        self.ax2 = plt.subplot2grid((2, 2), (0, 1))
+        self.ax3 = plt.subplot2grid((2, 2), (1, 0))
+        self.ax4 = plt.subplot2grid((2, 2), (1, 1))
         self.ax1.set_title('Average falls in lifetime')
         self.ax1.set_ylabel("No. Falls")
         self.ax1.set_xlabel("Time")
@@ -41,14 +52,14 @@ class Monitor(SPMonitor):
         self.ax4.set_ylim(self.ylims)
         self.ax4.set_xlim(self.xlims)
         # Set data for plot 1
-        self.y11 = zeros(0)
-        self.y12 = zeros(0)
-        self.y13 = zeros(0)
-        self.y2 = zeros(0)
-        self.y3 = zeros(0)
-        self.y41 = zeros(0)
-        self.y42 = zeros(0)
-        self.y43 = zeros(0)
+        self.y11 = np.zeros(0)
+        self.y12 = np.zeros(0)
+        self.y13 = np.zeros(0)
+        self.y2 = np.zeros(0)
+        self.y3 = np.zeros(0)
+        self.y41 = np.zeros(0)
+        self.y42 = np.zeros(0)
+        self.y43 = np.zeros(0)
         self.p11, = self.ax1.plot(self.t, self.y11, 'b-', label="Mild")
         self.p12, = self.ax1.plot(self.t, self.y12, 'g-', label="Moderate")
         self.p13, = self.ax1.plot(self.t, self.y13, 'm-', label="Severe")
@@ -72,6 +83,16 @@ class Monitor(SPMonitor):
         self.y3storage = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 
     def snapshot(self, txl, ctime):
+        """
+        Captures the current statistics of the system and updates graph grid, including average system interval,
+        intervention interval, average number of falls at end of system interval and proportions of population in each
+        population category.
+
+        :param txl: neo4j database write transaction
+        :param ctime: current timestep
+
+        :return: None
+        """
         look = txl.run("MATCH (n:Node) "
                        "WHERE n.name = {node} "
                        "RETURN n", node="Intervention")
@@ -84,11 +105,11 @@ class Monitor(SPMonitor):
                                                          "RETURN n.mild, n.moderate, n.severe, n.agents",
                                                          node="Care").values()[0]
             if agents_n:
-                self.y11 = append(self.y11, mild / agents_n)
+                self.y11 = pylab.append(self.y11, mild / agents_n)
                 self.p11.set_data(self.t, self.y11)
-                self.y12 = append(self.y12, moderate / agents_n)
+                self.y12 = pylab.append(self.y12, moderate / agents_n)
                 self.p12.set_data(self.t, self.y12)
-                self.y13 = append(self.y13, severe / agents_n)
+                self.y13 = pylab.append(self.y13, severe / agents_n)
                 self.p13.set_data(self.t, self.y13)
                 if max([mild / agents_n, moderate / agents_n, severe / agents_n]) > self.y1:
                     self.y1 = max([mild / agents_n, moderate / agents_n, severe / agents_n])
@@ -96,11 +117,11 @@ class Monitor(SPMonitor):
                     self.p12.axes.set_ylim(0.0, self.y1 + 1.0)
                     self.p13.axes.set_ylim(0.0, self.y1 + 1.0)
             else:
-                self.y11 = append(self.y11, 0)
+                self.y11 = pylab.append(self.y11, 0)
                 self.p11.set_data(self.t, self.y11)
-                self.y12 = append(self.y12, 0)
+                self.y12 = pylab.append(self.y12, 0)
                 self.p12.set_data(self.t, self.y12)
-                self.y13 = append(self.y13, 0)
+                self.y13 = pylab.append(self.y13, 0)
                 self.p13.set_data(self.t, self.y13)
             # Update plot 2 - Hos to Int
             intf = Interface()
@@ -111,7 +132,7 @@ class Monitor(SPMonitor):
                 if len(self.y3storage) >= 10:
                     self.y3storage = self.y3storage[-10:]
             if self.y3storage:
-                self.y2 = append(self.y2, mean(self.y3storage))
+                self.y2 = pylab.append(self.y2, mean(self.y3storage))
                 if self.y < mean(self.y3storage):
                     self.y = mean(self.y3storage)
                 self.p2.set_data(self.t, self.y2)
@@ -121,7 +142,7 @@ class Monitor(SPMonitor):
                 scint = careint
             else:
                 scint = 0
-            self.y3 = append(self.y3, scint)
+            self.y3 = pylab.append(self.y3, scint)
             if self.y < scint:
                 self.y = scint
             self.p3.set_data(self.t, self.y3)
@@ -135,11 +156,11 @@ class Monitor(SPMonitor):
             healthy = wb.count("Healthy") / len(wb)
             at_risk = wb.count("At risk") / len(wb)
             fallen = wb.count("Fallen") / len(wb)
-            self.y41 = append(self.y41, healthy)
+            self.y41 = pylab.append(self.y41, healthy)
             self.p41.set_data(self.t, self.y41)
-            self.y42 = append(self.y42, at_risk)
+            self.y42 = pylab.append(self.y42, at_risk)
             self.p42.set_data(self.t, self.y42)
-            self.y43 = append(self.y43, fallen)
+            self.y43 = pylab.append(self.y43, fallen)
             self.p43.set_data(self.t, self.y43)
             if max([healthy, at_risk, fallen]) / len(wb) > self.y4:
                 self.y4 = max([healthy, at_risk, fallen])
@@ -164,6 +185,14 @@ class Monitor(SPMonitor):
                 plt.pause(0.0005)
 
     def close(self, txc):
+        """
+        Saves figure, figure data, logs of agents in system at end of run to the output directory given in Specification
+        with name tag given in database.
+
+        :param txc: neo4j database write transaction
+
+        :return: None
+        """
         super(Monitor, self).close(txc)
         intf = Interface()
         runname = intf.getrunname(txc)

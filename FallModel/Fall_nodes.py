@@ -1,7 +1,7 @@
 from SPmodelling.Node import Node
-from numpy import exp, log
+import numpy as np
 from random import random
-from numpy.random import poisson, normal
+import numpy.random as npr
 from FallModel.Fall_agent import Agent
 import pickle
 from FallModel.Fall_Balancer import parselog
@@ -9,14 +9,43 @@ import specification
 
 
 class FallNode(Node):
+    """
+    FallNode class extends the Node class from SPmodelling with the perception filtering used by all nodes in the
+    FallModel.
+    """
 
     def __init__(self, name, capacity=None, duration=None, queue=None):
         super(FallNode, self).__init__(name, capacity, duration, queue)
 
     def agentsready(self, tx, intf, agentclass="FallAgent"):
+        """
+        Finds Agents ready to move and prompts them to do so and runs prediction for agents on arrival at new nodes.
+
+        :param tx: neo4j database write transaction
+        :param intf: Interface for database calls
+        :param agentclass: Tells the node what type of agents they are handling
+
+        :return: None
+        """
         super(FallNode, self).agentsready(tx, intf, agentclass)
 
     def agentperception(self, tx, agent, intf, dest=None, waittime=None):
+        """
+        Determine based on the node what an agent can see in terms of options to move. It filters out overloaded nodes
+        with no spare capacity, edges which require a referral the agent does not have, edges that do not allow this
+        type of agent. If Care is an option it directs agents with 0 mobility to Care by removing all other options.
+        If Hospital and GP are in options a fall is checked for based on the agents mobility, see Fall algorithm for
+        detection and classification of falls. Severe falls cause the agent to be directed to the Hospital, Moderate
+        falls direct to the GP.
+
+        :param tx: neo4j database write transaction.
+        :param agent: The agent object returned from the database via the interface
+        :param intf: Interface for database calls
+        :param dest: (Optional) used for agents whose destination has been predicted, passes the predicted destination
+        :param waittime: (Optional) integer, time the agent has been waiting at current node for updating the agent
+
+        :return: view, agents filtered perception of their surroundings
+        """
         view = super(FallNode, self).agentperception(tx, agent, intf, dest, waittime)
         if type(view) == list:
             for edge in view:
@@ -44,19 +73,19 @@ class FallNode(Node):
         # If Hos and GP in options check for fall and return hos or GP,
         #  no prediction just straight check based on  mobility
         elif "Hos" in destinations and "GP" in destinations:
-            if (r := random()) < exp(-3 * agent["mob"]):
+            if (r := random()) < np.exp(-3 * agent["mob"]):
                 view = [edge for edge in view if edge.end_node["name"] == "Hos"]
                 # Mark a severe fall has happened in agent log
                 ag = Agent(agent["id"])
                 ag.logging(tx, intf, "Severe Fall, " + str(intf.gettime(tx)))
                 intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
-            elif r < exp(-3 * (agent["mob"] - 0.1 * agent["mob"])):
+            elif r < np.exp(-3 * (agent["mob"] - 0.1 * agent["mob"])):
                 view = [edge for edge in view if edge.end_node["name"] == "GP"]
                 # Mark a moderate fall has happened in agent log
                 ag = Agent(agent["id"])
                 ag.logging(tx, intf, "Moderate Fall, " + str(intf.gettime(tx)))
                 intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
-            elif r < exp(-3 * (agent["mob"] - 0.3 * agent["mob"])):
+            elif r < np.exp(-3 * (agent["mob"] - 0.3 * agent["mob"])):
                 # Mark a mild fall has happened in agent log
                 ag = Agent(agent["id"])
                 ag.logging(tx, intf, "Mild Fall, " + str(intf.gettime(tx)))
@@ -64,6 +93,16 @@ class FallNode(Node):
         return view
 
     def agentprediction(self, tx, agent, intf):
+        """
+        For nodes with queues this function is specialised to add the agents to the queue with a wait time and
+        destination. Does nothing in this form.
+
+        :param tx: neo4j database write transaction
+        :param agent: Agent node object returned by interface
+        :param intf: Interface for database calls
+
+        :return: None
+        """
         return super(FallNode, self).agentprediction(tx, agent, intf)
         # Node specific only, no general node prediction assume no queue as default, thus no prediction needed
 
@@ -87,9 +126,9 @@ class HomeNode(FallNode):
                     self.confchange = intf.getnodevalue(tx, self.name, "modc", "Node", "name")
                     self.recoverrate = intf.getnodevalue(tx, self.name, "energy", "Node", "name")
                     intf.updateagent(ag["id"], "mob",
-                                     normal((self.queue[clock][ag["id"]][1] * self.mobchange), 1, 1))
+                                     npr.normal((self.queue[clock][ag["id"]][1] * self.mobchange), 1, 1))
                     intf.updateagent(ag["id"], "conf",
-                                     normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1))
+                                     npr.normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1))
                     intf.updateagent(ag["id"], "energy", self.queue[clock][ag["id"]][1] * self.recoverrate)
         super(HomeNode, self).agentsready(tx, intf)
 
@@ -145,14 +184,14 @@ class HomeNode(FallNode):
 
     @staticmethod
     def predictfall(mobility):
-        serverfallprediction = poisson(-log(1 - mobility), 1)
+        serverfallprediction = npr.poisson(-np.log(1 - mobility), 1)
         falltype = "Sever"
         falltime = serverfallprediction
-        moderatefallprediction = poisson(-log(1 - (mobility - 0.1 * mobility)), 1)
+        moderatefallprediction = npr.poisson(-np.log(1 - (mobility - 0.1 * mobility)), 1)
         if moderatefallprediction < falltime:
             falltype = "Moderate"
             falltime = moderatefallprediction
-        mildfallprediction = poisson(-log(1 - (mobility - 0.3 * mobility)), 1)
+        mildfallprediction = npr.poisson(-np.log(1 - (mobility - 0.3 * mobility)), 1)
         if mildfallprediction < falltime:
             falltype = "Mild"
             falltime = mildfallprediction
@@ -178,9 +217,9 @@ class HosNode(FallNode):
                     self.confchange = intf.getnodevalue(tx, self.name, "modc", "Node", "name")
                     self.recoverrate = intf.getnodevalue(tx, self.name, "energy", "Node", "name")
                     intf.updateagent(tx, ag["id"], "mob",
-                                     normal((self.queue[clock][ag["id"]][1] * self.mobchange), 1, 1)[0])
+                                     npr.normal((self.queue[clock][ag["id"]][1] * self.mobchange), 1, 1)[0])
                     intf.updateagent(tx, ag["id"], "conf",
-                                     normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1)[0])
+                                     npr.normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1)[0])
                     intf.updateagent(tx, ag["id"], "energy", self.queue[clock][ag["id"]][1] * self.recoverrate)
                     intf.updateagent(tx, ag["id"], "referal", True)
                     agent = Agent(ag["id"])
@@ -196,7 +235,7 @@ class HosNode(FallNode):
         ag = Agent(agent["id"])
         ag.logging(tx, intf, "Hos admitted, " + str(clock))
         mean = min(-9 * min(agent["mob"], 1) + 14, -9 * (min(agent["conf_res"], 1) + min(agent["mob_res"], 1)) + 14)
-        time = poisson(mean, 1)[0]
+        time = npr.poisson(mean, 1)[0]
         if clock + time not in self.queue.keys():
             self.queue[clock + time] = {}
         dest = [edge for edge in view if edge.end_node["name"] == "Home"]

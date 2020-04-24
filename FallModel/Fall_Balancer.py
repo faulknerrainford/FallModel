@@ -4,6 +4,13 @@ from SPmodelling import Balancer
 
 
 def parselog(log):
+    """
+    Utility function, parses log strings from agents and converts them to a list of tuples.
+
+    :param log: string log format: "(<event>, <timestep>),..."
+
+    :return: list of tuples [(<event>, <timestep>),...]
+    """
     logging.debug(log)
     while isinstance(log, list):
         log = log[0]
@@ -16,6 +23,15 @@ def parselog(log):
 
 
 def timesincedischarge(txl, intf):
+    """
+    Utility function reports the time between any hospital discharge and attending an intervention. Only recorded if
+    both events occur.
+
+    :param txl: neo4j database write transaction
+    :param intf: Interface for database calls
+
+    :return: list of times in integer timesteps
+    """
     times = []
     agents = intf.getnodeagents(txl, "Intervention", "name")
     for agent in agents:
@@ -29,6 +45,17 @@ def timesincedischarge(txl, intf):
 
 
 def adjustcapasity(txl, intf, history):
+    """
+    Rule function that applies the capacity change algorithm in the  case of two intervention node systems. This is uses
+    a history variable that is cleared when the capacity is adjusted so that another five timesteps must pass before the
+    capacity can be changed again.
+
+    :param txl: neo4j database write transaction
+    :param intf: Interface for database calls
+    :param history: List of previous average times since discharge
+
+    :return: history
+    """
     currenttimes = timesincedischarge(txl, intf)
     if not currenttimes and history:
         currentav = history[-1]
@@ -60,10 +87,21 @@ def adjustcapasity(txl, intf, history):
 
 
 class FlowReaction(Balancer.FlowReaction):
+    """
+    Fall specific implementation of a Balancer for adjusting network values. Applies the adjust capacity rule.
+    """
 
     def __init__(self, uri=None, author=None):
         super(FlowReaction, self).__init__(uri, author)
         self.storage = []
 
     def applyrules(self, txl, intf):
+        """
+        Applies the adjust capacity rule
+
+        :param txl: neo4j database write transaction
+        :param intf: Interface for database calls
+
+        :return: None
+        """
         self.storage = adjustcapasity(txl, intf, self.storage)
