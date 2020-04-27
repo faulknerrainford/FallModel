@@ -1,7 +1,7 @@
 Reset
 =====
 
-.. autoclass:: Fall_reset_dynamic.Reset
+.. autoclass:: Fall_reset.Reset
     :special-members:
     :members:
 

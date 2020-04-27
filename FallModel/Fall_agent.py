@@ -17,7 +17,7 @@ class Agent(SPmodellingAG):
         self.log = None
         self.fall = ""
         self.wellbeing = None
-        self.referal = None
+        self.referral = None
 
     def generator(self, tx, intf, params):
         """
@@ -37,13 +37,13 @@ class Agent(SPmodellingAG):
         self.energy = np.normal(energy, 0.05)
         self.confidence = np.normal(confidence, 0.05)
         self.wellbeing = "'At risk'"
-        self.referal = "false"
+        self.referral = "false"
         # Add agent with params to ind in graph with resources starting at 0
         time = tx.run("MATCH (a:Clock) RETURN a.time").values()[0][0]
         self.log = "(CREATED," + str(time) + ")"
         intf.addagent(tx, {"name": "Home"}, "Agent", {"mob": self.mobility, "conf": self.confidence, "mob_res": 0,
                                                       "conf_res": 0, "energy": self.energy, "wellbeing": self.wellbeing,
-                                                      "log": "'" + self.log + "'", "referal": self.referal}, "name")
+                                                      "log": "'" + self.log + "'", "referral": self.referral}, "name")
 
     @staticmethod
     def positive(num):
@@ -113,7 +113,7 @@ class Agent(SPmodellingAG):
         self.confidence_resources = intf.getnodevalue(tx, self.id, "conf_res", "Agent")
         self.log = intf.getnodevalue(tx, self.id, "log", "Agent")
         self.wellbeing = intf.getnodevalue(tx, self.id, "wellbeing", "Agent")
-        self.referal = intf.getnodevalue(tx, self.id, "referal", "Agent")
+        self.referral = intf.getnodevalue(tx, self.id, "referral", "Agent")
         if len(self.view) < 2:
             if type(self.view) == list and self.view:
                 choice = self.view[0]

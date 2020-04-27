@@ -11,6 +11,10 @@
 # nodes = [Nodes.CareNode(), Nodes.HosNode(), Nodes.SocialNode(), Nodes.GPNode(), Nodes.InterventionNode(),
 #          Nodes.InterventionNode("InterventionOpen"), Nodes.HomeNode()]
 #
+# Intervention_cap = <integer>
+# Open_Intervention = <boolean>
+# Open_Intervention_cap = <integer>
+#
 # savedirectory = <output_directory>
 #
 # database_uri = "bolt://localhost:7687"
@@ -21,3 +25,4 @@
 # Structure_auth = ("Structure", "struct")
 # Reset_auth = ("dancer", "dancer")
 # Monitor_auth = ("monitor", "monitor")
+#

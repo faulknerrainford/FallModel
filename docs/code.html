@@ -42,21 +42,58 @@
   <div class="section" id="reset">
 <h1>Reset<a class="headerlink" href="#reset" title="Permalink to this headline">¶</a></h1>
 <dl class="py class">
-<dt id="Fall_reset_dynamic.Reset">
-<em class="property">class </em><code class="sig-prename descclassname">Fall_reset_dynamic.</code><code class="sig-name descname">Reset</code><a class="headerlink" href="#Fall_reset_dynamic.Reset" title="Permalink to this definition">¶</a></dt>
-<dd><p>Reset database to starting state for next run</p>
+<dt id="Fall_reset.Reset">
+<em class="property">class </em><code class="sig-prename descclassname">Fall_reset.</code><code class="sig-name descname">Reset</code><a class="headerlink" href="#Fall_reset.Reset" title="Permalink to this definition">¶</a></dt>
+<dd><p>Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
+populates them with fall agents</p>
 <dl class="py method">
-<dt id="Fall_reset_dynamic.Reset.__init__">
-<code class="sig-name descname">__init__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset_dynamic.Reset.__init__" title="Permalink to this definition">¶</a></dt>
-<dd><p>Initialize self.  See help(type(self)) for accurate signature.</p>
+<dt id="Fall_reset.Reset.__init__">
+<code class="sig-name descname">__init__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset.Reset.__init__" title="Permalink to this definition">¶</a></dt>
+<dd><p>Set the reset script name to Fall Model so, see specification for individualised script names and reset settings</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_reset_dynamic.Reset.set_nodes">
-<em class="property">static </em><code class="sig-name descname">set_nodes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset_dynamic.Reset.set_nodes" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="field-list simple">
+<dt id="Fall_reset.Reset.generate_population">
+<em class="property">static </em><code class="sig-name descname">generate_population</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">ps</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset.Reset.generate_population" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates the required number of agents and starts them at the Home node.</p>
+<dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><p><strong>tx</strong> – neo4j database transaction with write privileges.</p>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>ps</strong> – population size</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_reset.Reset.set_edges">
+<em class="property">static </em><code class="sig-name descname">set_edges</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset.Reset.set_edges" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates the edges used in the commonly used system graph for Fall Model simulations. The variation in edges
+depends on existence of Open Intervention and the types of agents allows along the edge to the Open Intervention
+node, this is given in the specification file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j database write transaction</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_reset.Reset.set_nodes">
+<em class="property">static </em><code class="sig-name descname">set_nodes</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset.Reset.set_nodes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate the set of nodes used in Fall Models, currently only variation is if the Open Intervention node is
+included and the capacities on the Intervention nodes. The existence of the Open Intervention node and the nodes
+capacities are given in the specification file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j database write transaction</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>None</p>
@@ -226,6 +263,32 @@ used as a deciding factor.</p>
 <div class="section" id="module-Fall_nodes">
 <span id="nodes"></span><h2>Nodes<a class="headerlink" href="#module-Fall_nodes" title="Permalink to this headline">¶</a></h2>
 <dl class="py class">
+<dt id="Fall_nodes.CareNode">
+<em class="property">class </em><code class="sig-prename descclassname">Fall_nodes.</code><code class="sig-name descname">CareNode</code><a class="headerlink" href="#Fall_nodes.CareNode" title="Permalink to this definition">¶</a></dt>
+<dd><p>This node is not a true node. It is a sink node which only processes agents on arrival. As such it only has an
+agentsready function which processes the agents out of the system to save database space.</p>
+<dl class="py method">
+<dt id="Fall_nodes.CareNode.agentsready">
+<code class="sig-name descname">agentsready</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.CareNode.agentsready" title="Permalink to this definition">¶</a></dt>
+<dd><p>Saves out the log strings of all agents at the Care Node using the runname aquired from the database. Updates
+its own track of average number of falls and length of interval using information in agent logs. Also updates
+the total number of agents that have left the system. It then deletes the agents at the Care node.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>intf</strong> – Interface for database calls</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
 <dt id="Fall_nodes.FallNode">
 <em class="property">class </em><code class="sig-prename descclassname">Fall_nodes.</code><code class="sig-name descname">FallNode</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span></em>, <em class="sig-param"><span class="n">capacity</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">duration</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">queue</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.FallNode" title="Permalink to this definition">¶</a></dt>
 <dd><p>FallNode class extends the Node class from SPmodelling with the perception filtering used by all nodes in the
@@ -297,27 +360,25 @@ destination. Does nothing in this form.</p>
 <dl class="py class">
 <dt id="Fall_nodes.GPNode">
 <em class="property">class </em><code class="sig-prename descclassname">Fall_nodes.</code><code class="sig-name descname">GPNode</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'GP'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.GPNode" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="py method">
+<dd><p>GPNode is a subclass of Fall node which extends the Fall node by filtering the agents perception to redirect the
+agent home or to the hospital. It also gives the agent a referral if they have lower mobility.</p>
+<dl class="py method">
 <dt id="Fall_nodes.GPNode.agentperception">
 <code class="sig-name descname">agentperception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">agent</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">dest</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">waittime</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.GPNode.agentperception" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine based on the node what an agent can see in terms of options to move. It filters out overloaded nodes
-with no spare capacity, edges which require a referral the agent does not have, edges that do not allow this
-type of agent. If Care is an option it directs agents with 0 mobility to Care by removing all other options.
-If Hospital and GP are in options a fall is checked for based on the agents mobility, see Fall algorithm for
-detection and classification of falls. Severe falls cause the agent to be directed to the Hospital, Moderate
-falls direct to the GP.</p>
+<dd><p>Add aditional filter to direct the agent to Hospital if mobility below 0.6 and home otherwise. If the agent
+is sent home but have mobility below 0.85 they are given a referral.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>tx</strong> – neo4j database write transaction.</p></li>
-<li><p><strong>agent</strong> – The agent object returned from the database via the interface</p></li>
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>agent</strong> – agent database object returned by interface</p></li>
 <li><p><strong>intf</strong> – Interface for database calls</p></li>
-<li><p><strong>dest</strong> – (Optional) used for agents whose destination has been predicted, passes the predicted destination</p></li>
-<li><p><strong>waittime</strong> – (Optional) integer, time the agent has been waiting at current node for updating the agent</p></li>
+<li><p><strong>dest</strong> – Not used here</p></li>
+<li><p><strong>waittime</strong> – Not used here</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>view, agents filtered perception of their surroundings</p>
+<dd class="field-even"><p>perception with either Home or Hospital as the only destination</p>
 </dd>
 </dl>
 </dd></dl>
@@ -364,7 +425,10 @@ destination. Does nothing in this form.</p>
 <dl class="py class">
 <dt id="Fall_nodes.HomeNode">
 <em class="property">class </em><code class="sig-prename descclassname">Fall_nodes.</code><code class="sig-name descname">HomeNode</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Home'</span></em>, <em class="sig-param"><span class="n">mc</span><span class="o">=</span><span class="default_value">- 0.015</span></em>, <em class="sig-param"><span class="n">rr</span><span class="o">=</span><span class="default_value">0.3</span></em>, <em class="sig-param"><span class="n">cc</span><span class="o">=</span><span class="default_value">- 0.02</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HomeNode" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="py method">
+<dd><p>HomeNode is a subclass of FallNode and extends it to add a queue for agents, a prediction algorithm for where an
+agent is going next and how long they will be at the home node. As part of this is has a function for predicting
+falls including categorication.</p>
+<dl class="py method">
 <dt id="Fall_nodes.HomeNode.agentperception">
 <code class="sig-name descname">agentperception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">agent</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">dest</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">waittime</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HomeNode.agentperception" title="Permalink to this definition">¶</a></dt>
 <dd><p>Determine based on the node what an agent can see in terms of options to move. It filters out overloaded nodes
@@ -392,8 +456,14 @@ falls direct to the GP.</p>
 <dl class="py method">
 <dt id="Fall_nodes.HomeNode.agentprediction">
 <code class="sig-name descname">agentprediction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">agent</span></em>, <em class="sig-param"><span class="n">intf</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HomeNode.agentprediction" title="Permalink to this definition">¶</a></dt>
-<dd><p>For nodes with queues this function is specialised to add the agents to the queue with a wait time and
-destination. Does nothing in this form.</p>
+<dd><p>We check the time it will take the agent to have the recovered the minimum energy required to move to a
+different node other than by a fall. We then predict when and kind of the agents next fall. We compare this with
+the recovery time to see if the agent will fall before they move. If the agent is going to fall we add them to
+the queue at the time step when they will fall and log the fall. In the case of a severe or moderate fall we
+also set a destination as Hospital or GP respectively. We add agents with mild falls or recovery before fall are
+added to the queue with out a destination but with a duration the same as their recovery time in both cases, if
+they have a mild fall we update their wellbeing to “Fallen” as well. It the agent has sufficient energy to act
+immediately then they are added to the top of the queue with no duration or destination.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -411,17 +481,40 @@ destination. Does nothing in this form.</p>
 <dl class="py method">
 <dt id="Fall_nodes.HomeNode.agentsready">
 <code class="sig-name descname">agentsready</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">agentclass</span><span class="o">=</span><span class="default_value">'FallAgent'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HomeNode.agentsready" title="Permalink to this definition">¶</a></dt>
-<dd><p>Finds Agents ready to move and prompts them to do so and runs prediction for agents on arrival at new nodes.</p>
+<dd><p>If there are agents ready at this time step the node checks the nodes mobility, confidence and energy modifiers.
+It uses those values to update the agent based on the agents duration at the home node. After this agents are
+processed as usual for a fall node.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
 <li><p><strong>intf</strong> – Interface for database calls</p></li>
-<li><p><strong>agentclass</strong> – Tells the node what type of agents they are handling</p></li>
+<li><p><strong>agentclass</strong> – the class of agents this node expects to find and process.</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_nodes.HomeNode.predictfall">
+<em class="property">static </em><code class="sig-name descname">predictfall</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">mobility</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HomeNode.predictfall" title="Permalink to this definition">¶</a></dt>
+<dd><p>We predict how many time steps until the next fall of each type based on a poisson distribution with mean for
+severe falls:
+-log(1-mobility)
+moderate falls:
+-log(1-0.9*mobility)
+mild falls:
+-log(1-0.7*mobility)
+We return the earliest fall.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>mobility</strong> – Agents current mobility</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>[fall time, fall type] for the fall occurring first</p>
 </dd>
 </dl>
 </dd></dl>
@@ -431,7 +524,9 @@ destination. Does nothing in this form.</p>
 <dl class="py class">
 <dt id="Fall_nodes.HosNode">
 <em class="property">class </em><code class="sig-prename descclassname">Fall_nodes.</code><code class="sig-name descname">HosNode</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Hos'</span></em>, <em class="sig-param"><span class="n">mc</span><span class="o">=</span><span class="default_value">- 0.1</span></em>, <em class="sig-param"><span class="n">rr</span><span class="o">=</span><span class="default_value">0.2</span></em>, <em class="sig-param"><span class="n">cc</span><span class="o">=</span><span class="default_value">- 0.05</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HosNode" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="py method">
+<dd><p>Extends the FallNode class with the addition of prediction of length of hospital stay and modification of agent
+values before leaving node based on duration.</p>
+<dl class="py method">
 <dt id="Fall_nodes.HosNode.agentperception">
 <code class="sig-name descname">agentperception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">agent</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">dest</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">waittime</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HosNode.agentperception" title="Permalink to this definition">¶</a></dt>
 <dd><p>Determine based on the node what an agent can see in terms of options to move. It filters out overloaded nodes
@@ -459,13 +554,19 @@ falls direct to the GP.</p>
 <dl class="py method">
 <dt id="Fall_nodes.HosNode.agentprediction">
 <code class="sig-name descname">agentprediction</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">agent</span></em>, <em class="sig-param"><span class="n">intf</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HosNode.agentprediction" title="Permalink to this definition">¶</a></dt>
-<dd><p>For nodes with queues this function is specialised to add the agents to the queue with a wait time and
-destination. Does nothing in this form.</p>
+<dd><p>Logs the agent being admitted to hospital and then calculates mean for poisson distribution to predict the
+duration of the agents stay.
+mean = min(-9*min(agent_mobility, 1) + 14, -9*(min(agent_confidence_resources, 1) +
+min(agent_mobility_resources, 1)) + 14
+This means a fully healthy agent has a mean stay of 5 days in hospital after a severe fall. The predicted
+duration is drawn from a poisson distribution.
+The agent is added to the queue at t = current_time + predicted_duration
+with destination home.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
-<li><p><strong>agent</strong> – Agent node object returned by interface</p></li>
+<li><p><strong>agent</strong> – agent database object returned from Interface</p></li>
 <li><p><strong>intf</strong> – Interface for database calls</p></li>
 </ul>
 </dd>
@@ -478,19 +579,20 @@ destination. Does nothing in this form.</p>
 <dl class="py method">
 <dt id="Fall_nodes.HosNode.agentsready">
 <code class="sig-name descname">agentsready</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">agentclass</span><span class="o">=</span><span class="default_value">'FallAgent'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.HosNode.agentsready" title="Permalink to this definition">¶</a></dt>
-<dd><p>Finds Agents ready to move and prompts them to do so and runs prediction for agents on arrival at new nodes.</p>
+<dd><p>If there are agents ready at this time step the node checks the nodes mobility, confidence and energy modifiers.
+It uses those values to update the agent based on the agents duration at the Hospital node. It also updates the
+agent to give it a referral and logs its discharge from hospital. After this agents are processed as usual for a
+fall node.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
 <li><p><strong>intf</strong> – Interface for database calls</p></li>
-<li><p><strong>agentclass</strong> – Tells the node what type of agents they are handling</p></li>
+<li><p><strong>agentclass</strong> – class of agent the node will be processing</p></li>
 </ul>
 </dd>
-<dt class="field-even">Returns</dt>
-<dd class="field-even"><p>None</p>
-</dd>
 </dl>
+<p>:return:None</p>
 </dd></dl>
 
 </dd></dl>
@@ -498,27 +600,26 @@ destination. Does nothing in this form.</p>
 <dl class="py class">
 <dt id="Fall_nodes.InterventionNode">
 <em class="property">class </em><code class="sig-prename descclassname">Fall_nodes.</code><code class="sig-name descname">InterventionNode</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Intervention'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.InterventionNode" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="py method">
+<dd><p>Extends the Fall Node to manage the capacity limit changes to Intervention nodes and manages the referrals for
+agents</p>
+<dl class="py method">
 <dt id="Fall_nodes.InterventionNode.agentperception">
 <code class="sig-name descname">agentperception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">agent</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">dest</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">waittime</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.InterventionNode.agentperception" title="Permalink to this definition">¶</a></dt>
-<dd><p>Determine based on the node what an agent can see in terms of options to move. It filters out overloaded nodes
-with no spare capacity, edges which require a referral the agent does not have, edges that do not allow this
-type of agent. If Care is an option it directs agents with 0 mobility to Care by removing all other options.
-If Hospital and GP are in options a fall is checked for based on the agents mobility, see Fall algorithm for
-detection and classification of falls. Severe falls cause the agent to be directed to the Hospital, Moderate
-falls direct to the GP.</p>
+<dd><p>Extends normal Fall Node function by logging the agents attendance at the intervention. It checks if the agent
+has mobility below 0.6, if they do the agent is given a referral (if they didn’t have one) else if they have a
+referral is removed.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
-<li><p><strong>tx</strong> – neo4j database write transaction.</p></li>
-<li><p><strong>agent</strong> – The agent object returned from the database via the interface</p></li>
-<li><p><strong>intf</strong> – Interface for database calls</p></li>
-<li><p><strong>dest</strong> – (Optional) used for agents whose destination has been predicted, passes the predicted destination</p></li>
-<li><p><strong>waittime</strong> – (Optional) integer, time the agent has been waiting at current node for updating the agent</p></li>
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>agent</strong> – agent database object returned from Interface</p></li>
+<li><p><strong>intf</strong> – Interface for calls to database</p></li>
+<li><p><strong>dest</strong> – Not used here</p></li>
+<li><p><strong>waittime</strong> – Not used here</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
-<dd class="field-even"><p>view, agents filtered perception of their surroundings</p>
+<dd class="field-even"><p>view from Fall Node agentperception</p>
 </dd>
 </dl>
 </dd></dl>
@@ -545,13 +646,13 @@ destination. Does nothing in this form.</p>
 <dl class="py method">
 <dt id="Fall_nodes.InterventionNode.agentsready">
 <code class="sig-name descname">agentsready</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">agentclass</span><span class="o">=</span><span class="default_value">'FallAgent'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.InterventionNode.agentsready" title="Permalink to this definition">¶</a></dt>
-<dd><p>Finds Agents ready to move and prompts them to do so and runs prediction for agents on arrival at new nodes.</p>
+<dd><p>Extends normal Fall node by updating the load value after processing agents.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
 <li><p><strong>intf</strong> – Interface for database calls</p></li>
-<li><p><strong>agentclass</strong> – Tells the node what type of agents they are handling</p></li>
+<li><p><strong>agentclass</strong> – Class to use for agents at this location</p></li>
 </ul>
 </dd>
 <dt class="field-even">Returns</dt>
@@ -565,7 +666,8 @@ destination. Does nothing in this form.</p>
 <dl class="py class">
 <dt id="Fall_nodes.SocialNode">
 <em class="property">class </em><code class="sig-prename descclassname">Fall_nodes.</code><code class="sig-name descname">SocialNode</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">name</span><span class="o">=</span><span class="default_value">'Social'</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.SocialNode" title="Permalink to this definition">¶</a></dt>
-<dd><dl class="py method">
+<dd><p>Currently a generic FallNode with name “Social”</p>
+<dl class="py method">
 <dt id="Fall_nodes.SocialNode.agentperception">
 <code class="sig-name descname">agentperception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">agent</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">dest</span><span class="o">=</span><span class="default_value">None</span></em>, <em class="sig-param"><span class="n">waittime</span><span class="o">=</span><span class="default_value">None</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_nodes.SocialNode.agentperception" title="Permalink to this definition">¶</a></dt>
 <dd><p>Determine based on the node what an agent can see in terms of options to move. It filters out overloaded nodes
