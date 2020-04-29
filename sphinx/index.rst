@@ -12,7 +12,10 @@ Model for Mobility and Falls in Agents with Declining Mobility
 
    setup
    domain
-   code
+   reset
+   network
+   agent
+   monitor
 
 
 
