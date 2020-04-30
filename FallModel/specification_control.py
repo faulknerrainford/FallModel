@@ -15,6 +15,7 @@ Intervention_cap = 4
 Open_Intervention = False
 Open_Intervention_cap = 0
 Intervention_Limit = "'Fallen, At risk, Healthy'"
+dynamic = False
 
 savedirectory = "/Fall_Data/"
 

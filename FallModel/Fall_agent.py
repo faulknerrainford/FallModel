@@ -14,6 +14,7 @@ class Agent(SPmodellingAG):
         self.mobility_resources = None
         self.confidence_resources = None
         self.current_energy = None
+        self.view = None
         self.log = None
         self.fall = ""
         self.wellbeing = None
@@ -26,7 +27,8 @@ class Agent(SPmodellingAG):
         :param self: Agent
         :param tx: neo4j database transaction with write permission
         :param intf: An Interface() object to simplify interactions with the database
-        :param params: [mobility, confidence, energy] these are the means for the normal distributions sampled to set parameters
+        :param params: [mobility, confidence, energy] these are the means for the normal distributions sampled to set
+        parameters
 
         :return: None
         """

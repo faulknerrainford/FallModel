@@ -39,13 +39,13 @@ specification for FallModel must start with:
 This connects the FallModel into the SPmodelling systems. The SPm function must be called from the same location as
 the specification.py file using the imports.
 
-.. code-block::
+.. code-block:: python
 
     specname = <name_of_this_specification>
 
 It then defines the name for this specification, this particular network. It uses this in tagging output files.
 
-.. code-block::
+.. code-block:: python
 
     """List of FallNodes used in system"""
     nodes = [Nodes.CareNode(), Nodes.HosNode(), Nodes.SocialNode(), Nodes.GPNode(), Nodes.InterventionNode(),
@@ -54,19 +54,19 @@ It then defines the name for this specification, this particular network. It use
 The nodes used in the network are defines in terms of the FallModel nodes. These objects will be used to process the
 agents flow for each node in the flow function.
 
-.. code-block::
+.. code-block:: python
 
     savedirectory = <output_file_directory>
 
 The output directory can be defined relative to the specification files location.
 
-.. code-block::
+.. code-block:: python
 
     database_uri = "bolt://localhost:7687" # Set for a local neo4j database, change for remote databases
 
 The location of the database is required, for local databases this should be as above.
 
-.. code-block::
+.. code-block:: python
 
     """Account names and passwords for databases"""
     Flow_auth = ("Flow", "Flow")
@@ -75,6 +75,18 @@ The location of the database is required, for local databases this should be as 
     Structure_auth = ("Structure", "struct")
     Reset_auth = ("dancer", "dancer")
     Monitor_auth = ("monitor", "monitor")
+
+Finally we have settings for the reset scripts and balancer:
+
+.. code-block:: python
+
+    Intervention_cap = 2
+    Open_Intervention = False
+    Open_Intervention_cap = 0
+    """Agents allowed to use Open Intervention"""
+    Intervention_Limit = "'Fallen, At risk, Healthy'"
+    """ Tells balancer if it needs to adjust OpenIntervention as well as Intervention"""
+    dynamic = False
 
 Running
 --------

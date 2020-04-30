@@ -13,6 +13,7 @@
     <script src="_static/underscore.js"></script>
     <script src="_static/doctools.js"></script>
     <script src="_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
     
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
@@ -76,32 +77,42 @@ specification for FallModel must start with:</p>
 </div>
 <p>This connects the FallModel into the SPmodelling systems. The SPm function must be called from the same location as
 the specification.py file using the imports.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">specname</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">name_of_this_specification</span><span class="o">&gt;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">specname</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">name_of_this_specification</span><span class="o">&gt;</span>
 </pre></div>
 </div>
 <p>It then defines the name for this specification, this particular network. It uses this in tagging output files.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;List of FallNodes used in system&quot;&quot;&quot;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;List of FallNodes used in system&quot;&quot;&quot;</span>
 <span class="n">nodes</span> <span class="o">=</span> <span class="p">[</span><span class="n">Nodes</span><span class="o">.</span><span class="n">CareNode</span><span class="p">(),</span> <span class="n">Nodes</span><span class="o">.</span><span class="n">HosNode</span><span class="p">(),</span> <span class="n">Nodes</span><span class="o">.</span><span class="n">SocialNode</span><span class="p">(),</span> <span class="n">Nodes</span><span class="o">.</span><span class="n">GPNode</span><span class="p">(),</span> <span class="n">Nodes</span><span class="o">.</span><span class="n">InterventionNode</span><span class="p">(),</span>
          <span class="n">Nodes</span><span class="o">.</span><span class="n">InterventionNode</span><span class="p">(</span><span class="s2">&quot;InterventionOpen&quot;</span><span class="p">),</span> <span class="n">Nodes</span><span class="o">.</span><span class="n">HomeNode</span><span class="p">()]</span>
 </pre></div>
 </div>
 <p>The nodes used in the network are defines in terms of the FallModel nodes. These objects will be used to process the
 agents flow for each node in the flow function.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">savedirectory</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">output_file_directory</span><span class="o">&gt;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">savedirectory</span> <span class="o">=</span> <span class="o">&lt;</span><span class="n">output_file_directory</span><span class="o">&gt;</span>
 </pre></div>
 </div>
 <p>The output directory can be defined relative to the specification files location.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">database_uri</span> <span class="o">=</span> <span class="s2">&quot;bolt://localhost:7687&quot;</span> <span class="c1"># Set for a local neo4j database, change for remote databases</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">database_uri</span> <span class="o">=</span> <span class="s2">&quot;bolt://localhost:7687&quot;</span> <span class="c1"># Set for a local neo4j database, change for remote databases</span>
 </pre></div>
 </div>
 <p>The location of the database is required, for local databases this should be as above.</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;Account names and passwords for databases&quot;&quot;&quot;</span>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="sd">&quot;&quot;&quot;Account names and passwords for databases&quot;&quot;&quot;</span>
 <span class="n">Flow_auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Flow&quot;</span><span class="p">,</span> <span class="s2">&quot;Flow&quot;</span><span class="p">)</span>
 <span class="n">Balancer_auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Balancer&quot;</span><span class="p">,</span> <span class="s2">&quot;bal&quot;</span><span class="p">)</span>
 <span class="n">Population_auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Population&quot;</span><span class="p">,</span> <span class="s2">&quot;pop&quot;</span><span class="p">)</span>
 <span class="n">Structure_auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;Structure&quot;</span><span class="p">,</span> <span class="s2">&quot;struct&quot;</span><span class="p">)</span>
 <span class="n">Reset_auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;dancer&quot;</span><span class="p">,</span> <span class="s2">&quot;dancer&quot;</span><span class="p">)</span>
 <span class="n">Monitor_auth</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;monitor&quot;</span><span class="p">,</span> <span class="s2">&quot;monitor&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>Finally we have settings for the reset scripts and balancer:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">Intervention_cap</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">Open_Intervention</span> <span class="o">=</span> <span class="kc">False</span>
+<span class="n">Open_Intervention_cap</span> <span class="o">=</span> <span class="mi">0</span>
+<span class="sd">&quot;&quot;&quot;Agents allowed to use Open Intervention&quot;&quot;&quot;</span>
+<span class="n">Intervention_Limit</span> <span class="o">=</span> <span class="s2">&quot;&#39;Fallen, At risk, Healthy&#39;&quot;</span>
+<span class="sd">&quot;&quot;&quot; Tells balancer if it needs to adjust OpenIntervention as well as Intervention&quot;&quot;&quot;</span>
+<span class="n">dynamic</span> <span class="o">=</span> <span class="kc">False</span>
 </pre></div>
 </div>
 </div>
