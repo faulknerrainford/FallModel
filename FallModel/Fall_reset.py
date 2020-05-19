@@ -1,8 +1,9 @@
-from Fall_agent import Agent as FallAgent
+from Fall_agent import FallAgent as FallAgent
 from SPmodelling.Interface import Interface
 from SPmodelling import Reset as SPReset
 import specification
 
+# TODO: New reset function with new values: energy, mood, mobility and inclination
 
 class Reset(SPReset.Reset):
     """

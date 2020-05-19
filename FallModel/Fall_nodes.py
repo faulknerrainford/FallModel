@@ -2,11 +2,12 @@ from SPmodelling.Node import Node
 import numpy as np
 from random import random
 import numpy.random as npr
-from FallModel.Fall_agent import Agent
+from FallModel.Fall_agent import FallAgent
 import pickle
 from FallModel.Fall_Balancer import parselog
 import specification
 
+# TODO: Check each class and if needed rewrite for new values
 
 class FallNode(Node):
     """
@@ -76,18 +77,18 @@ class FallNode(Node):
             if (r := random()) < np.exp(-3 * agent["mob"]):
                 view = [edge for edge in view if edge.end_node["name"] == "Hos"]
                 # Mark a severe fall has happened in agent log
-                ag = Agent(agent["id"])
+                ag = FallAgent(agent["id"])
                 ag.logging(tx, intf, "Severe Fall, " + str(intf.gettime(tx)))
                 intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
             elif r < np.exp(-3 * (agent["mob"] - 0.1 * agent["mob"])):
                 view = [edge for edge in view if edge.end_node["name"] == "GP"]
                 # Mark a moderate fall has happened in agent log
-                ag = Agent(agent["id"])
+                ag = FallAgent(agent["id"])
                 ag.logging(tx, intf, "Moderate Fall, " + str(intf.gettime(tx)))
                 intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
             elif r < np.exp(-3 * (agent["mob"] - 0.3 * agent["mob"])):
                 # Mark a mild fall has happened in agent log
-                ag = Agent(agent["id"])
+                ag = FallAgent(agent["id"])
                 ag.logging(tx, intf, "Mild Fall, " + str(intf.gettime(tx)))
                 intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
         return view
@@ -191,18 +192,18 @@ class HomeNode(FallNode):
                 if falltype == "Severe":
                     dest = [edge for edge in view if edge.end_node["name"] == "Hos"]
                     self.queue[queuetime][agent["id"]] = (dest[0], falltime)
-                    ag = Agent(agent["id"])
+                    ag = FallAgent(agent["id"])
                     ag.logging(tx, intf, "Severe Fall, " + str(queuetime))
                 elif falltype == "Moderate":
                     dest = [edge for edge in view if edge.end_node["name"] == "GP"]
                     self.queue[queuetime][agent["id"]] = (dest[0], falltime)
-                    ag = Agent(agent["id"])
+                    ag = FallAgent(agent["id"])
                     ag.logging(tx, intf, "Moderate Fall, " + str(queuetime))
             else:
                 # Add agent to queue with recovery
                 if falltype == "Mild":
                     queuetime = falltime + intf.gettime(tx)
-                    ag = Agent(agent["id"])
+                    ag = FallAgent(agent["id"])
                     ag.logging(tx, intf, "Mild Fall, " + str(queuetime))
                     intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
                 if recoverytime + intf.gettime(tx) not in self.queue.keys():
@@ -283,7 +284,7 @@ class HosNode(FallNode):
                                      npr.normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1)[0])
                     intf.updateagent(tx, ag["id"], "energy", self.queue[clock][ag["id"]][1] * self.recoverrate)
                     intf.updateagent(tx, ag["id"], "referral", True)
-                    agent = Agent(ag["id"])
+                    agent = FallAgent(ag["id"])
                     agent.logging(tx, intf, "Hos discharge, " + str(intf.gettime(tx)))
         super(HosNode, self).agentsready(tx, intf)
 
@@ -309,7 +310,7 @@ class HosNode(FallNode):
         """
         view = super(HosNode, self).agentprediction(tx, agent, intf)[1:]
         clock = intf.gettime(tx)
-        ag = Agent(agent["id"])
+        ag = FallAgent(agent["id"])
         ag.logging(tx, intf, "Hos admitted, " + str(clock))
         mean = min(-9 * min(agent["mob"], 1) + 14, -9 * (min(agent["conf_res"], 1) + min(agent["mob_res"], 1)) + 14)
         time = npr.poisson(mean, 1)[0]
@@ -416,7 +417,7 @@ class InterventionNode(FallNode):
         :return: view from Fall Node agentperception
         """
         view = super(InterventionNode, self).agentperception(tx, agent, intf, dest, waittime)
-        ag = Agent(agent["id"])
+        ag = FallAgent(agent["id"])
         ag.logging(tx, intf, self.name + ", " + str(intf.gettime(tx)))
         if agent["mob"] > 0.6:
             intf.updateagent(tx, agent["id"], "referral", "False", "name")
