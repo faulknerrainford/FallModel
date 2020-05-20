@@ -1,5 +1,6 @@
 # TODO: Check and update all specifications to use correct versions of classes. Track here which have been updated and
 #       changed in this to do.
+#       update resets to resets_v0
 # from FallModel import Fall_nodes as Nodes
 # from FallModel import Fall_Monitor as Monitor
 # from FallModel import Fall_Balancer as Balancer
