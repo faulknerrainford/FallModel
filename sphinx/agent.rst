@@ -11,8 +11,10 @@ Fall Agent Algorithm
 1. Perception
     + Remove Edges where Agent.Energy < Edge.Energy + Edge.End_Node.Energy
 2. Choose
-    + Remove Edges where Node.Effort > Edge.Mobility*(Agent.Mobility + Agent.Confidence*Agent.Mobility_Resources) + Edge.Confidence(Agent.Confidence + Agent.Mobility*Agent.Confidence_Resources)
-    + Select Edge with max(Edge.worth)
+    + Remove Edges where Edge.Mood > Agent.Mood
+    + Select from remaining edges using a weighted sampling, we generate the weights as follows:
+        +  For each edge we get the agent.inclination values corresponding to the edge.type
+        +  We take the list of agent.inclination values and normalize them to give the sample weights
 3. Move
     + Delete Agents existing location edge
     + Create new edge from agent to Edge.End_Node for the selected Edge
@@ -23,7 +25,7 @@ Fall Agent Algorithm
             + If Agent.Mobility <= 0: Agent.Wellbeing = "Fallen"
             + Else If Agent.Mobility > 1: Agent.Wellbeing = "Healthy"
             + Else If Agent.Wellbeing == "Healthy": Agent.Wellbeing = "At Risk"
-    + Add Edge.Confidence_Modifier to Agent.Confidence
+    + Add Edge.Mood_Modifier to Agent.Mood
 5. Learning
     + Deduct Edge.End_Node.Energy from Agent.Energy
     + Add Edge.End_Node.Mobility_Modifier to Agent.Mobility
@@ -31,9 +33,27 @@ Fall Agent Algorithm
             + If Agent.Mobility <= 0: Agent.Wellbeing = "Fallen"
             + Else If Agent.Mobility > 1: Agent.Wellbeing = "Healthy"
             + Else If Agent.Wellbeing == "Healthy": Agent.Wellbeing = "At Risk"
-    + Add Edge.End_Node.Confidence to Agent.Confidence
-    + Add Edge.End_Node.Confidence_Resources to Agent.Confidence_Resources
-    + Add Edge.End_Node.Mobility_Resources to Agent.Mobility_Resources
+    + Add Edge.End_Node.Mood to Agent.Mood
+    + Add Edge.End_Node.Energy to Agent.Energy
+    + If new Agent.Energy > Agent.Energy before move:
+        Increment Agent.Inclination.Edge.type
+    + Else if new Agent.Energy < Agent.Energy before move:
+        Decrement Agent.Inclination.Edge.type
+    + If Agent.Energy > 0.8:
+        Increment Agent.Inclination.social
+    + Else if Agent.Energy < 0.2:
+        Increment Agent.Inclination.inactivity
+    + If Agent.Mood > 0.8:
+        Increment Agent.Inclination.social
+        Decrement Agent.Inclination.inactivity
+    + Else if Agent.Mood < 0.2:
+        Decrement Agent.Inclination.social
+        Increment Agent.Inclination.inactivity
+    + If Agent.Mobility < 0.4:
+        Increment Agent.Inclination.medical
+        Increment Agent.Inclination.inactivity
+    + Else if Agent.Mobility > 0.8:
+        Decrement Agent.Inclination.inactivity
     + If Edge.End_Node is Care node:
         Log Agent entering Care
     + If Edge.End_Node has a capacity:
@@ -49,7 +69,7 @@ Fall Agent Algorithm
 Agent Code
 -----------
 
-.. automodule:: Fall_agent
+.. autoclass:: Fall_agent.Patient
     :members:
 
 -----------

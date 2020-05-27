@@ -6,6 +6,7 @@ class Patient(Agent):
     """
     Agent for modelling the physical movement of patients with declining mobility
     """
+
     def __init__(self, agent_id):
         super(Patient, self).__init__(agent_id, nuid="name")
         self.mobility = None
@@ -26,8 +27,7 @@ class Patient(Agent):
         :param self: Agent
         :param tx: neo4j database transaction with write permission
         :param intf: An Interface() object to simplify interactions with the database
-        :param params: [mobility, mood, energy, inclination] these are the means for the normal distributions sampled to
-        set parameters
+        :param params: [mobility, mood, energy, inclination] these are the means for the normal distributions sampled to set parameters
 
         :return: None
         """
@@ -38,15 +38,16 @@ class Patient(Agent):
         self.energy = np.normal(energy, 0.05)
         self.mood = np.normal(mood, 0.05)
         self.inclination = [np.normal(x) for x in inclination]
-        self.inclination = self.inclination/sum(self.inclination)
+        self.inclination = self.inclination / sum(self.inclination)
         self.wellbeing = "'At risk'"
         self.referral = "false"
         # Add agent with params to ind in graph with resources starting at 0
         time = tx.run("MATCH (a:Clock) RETURN a.time").values()[0][0]
         self.log = "(CREATED," + str(time) + ")"
-        intf.addagent(tx, {"name": "Home"}, "Agent", {"mob": self.mobility, "mood": self.mood, "energy": self.energy,
-                                                      "inclination": self.inclination, "wellbeing": self.wellbeing,
-                                                      "log": "'" + self.log + "'", "referral": self.referral}, "name")
+        intf.addagent(tx, {"name": "Home"}, "Agent:Patient",
+                      {"mob": self.mobility, "mood": self.mood, "energy": self.energy,
+                       "inclination": self.inclination, "wellbeing": self.wellbeing,
+                       "log": "'" + self.log + "'", "referral": self.referral}, "name")
 
     @staticmethod
     def positive(num):
@@ -130,7 +131,7 @@ class Patient(Agent):
                 return None
             types = [edge["type"] for edge in options]
             weights = [self.inclination[label] for label in types]
-            weights = [w/sum(weights) for w in weights]
+            weights = [w / sum(weights) for w in weights]
             choice = np.choice(options, 1, p=weights)
         return choice
 
@@ -184,31 +185,31 @@ class Patient(Agent):
             intf.updateagent(tx, self.id, "mood", self.mood)
         if "energy" in choice.end_node:
             self.current_energy = np.normal(choice.end_node["energy"], 0.05) + self.current_energy
-            energy_change = self.current_energy-self.energy
+            energy_change = self.current_energy - self.energy
             intf.updateagent(tx, self.id, "energy", self.current_energy)
             edge_types = ["social", "fall", "medical", "inactive"]
             for i in range(len(edge_types)):
                 if choice["type"] == edge_types[i]:
                     if energy_change < 0:
-                        self.inclination[i] = self.inclination[i]+1
+                        self.inclination[i] = self.inclination[i] + 1
                     elif energy_change > 0:
-                        self.inclination[i] = self.positive(self.inclination[i]-1)
+                        self.inclination[i] = self.positive(self.inclination[i] - 1)
         # change to inclination based on mobility, energy and mood
         if self.current_energy > 0.8:
-            self.inclination[0] = self.inclination[0]+1
+            self.inclination[0] = self.inclination[0] + 1
         elif self.current_energy < 0.2:
-            self.inclination[3] = self.inclination[3]+1
+            self.inclination[3] = self.inclination[3] + 1
         if self.mood > 0.8:
-            self.inclination[0] = self.inclination[0]-1
-            self.inclination[3] = self.inclination[3]+1
+            self.inclination[0] = self.inclination[0] - 1
+            self.inclination[3] = self.inclination[3] + 1
         elif self.mood < 0.2:
-            self.inclination[0] = self.inclination[0]+1
-            self.inclination[3] = self.inclination[3]-1
+            self.inclination[0] = self.inclination[0] + 1
+            self.inclination[3] = self.inclination[3] - 1
         if self.mobility < 0.4:
-            self.inclination[2] = self.inclination[2]+1
-            self.inclination[3] = self.inclination[3]+1
+            self.inclination[2] = self.inclination[2] + 1
+            self.inclination[3] = self.inclination[3] + 1
         elif self.mobility > 0.8:
-            self.inclination[3] = self.inclination[3]-1
+            self.inclination[3] = self.inclination[3] - 1
         intf.updateagent(tx, self.id, "inclination", self.inclination)
         # log going into care
         if choice.end_node["name"] == "Care":
@@ -297,6 +298,7 @@ class FallAgent(Agent):
     """
     Agent for modelling patients with declining mobility
     """
+
     def __init__(self, agent_id):
         super(FallAgent, self).__init__(agent_id, nuid="name")
         self.mobility = None
@@ -318,8 +320,7 @@ class FallAgent(Agent):
         :param self: Agent
         :param tx: neo4j database transaction with write permission
         :param intf: An Interface() object to simplify interactions with the database
-        :param params: [mobility, confidence, energy] these are the means for the normal distributions sampled to set
-        parameters
+        :param params: [mobility, confidence, energy] these are the means for the normal distributions sampled to set parameters
 
         :return: None
         """

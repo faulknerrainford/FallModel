@@ -1,15 +1,15 @@
 from FallModel import Fall_nodes as Nodes
-from FallModel import Fall_Monitor as Monitor
-from FallModel import Fall_Balancer as Balancer
+from FallModel import Monitor as Monitor
+from FallModel import Balancer as Balancer
 from FallModel import FallAgent as Agent
 from FallModel import Fall_Population as Population
-from FallModel import Fall_reset as Reset
+from FallModel import ResetV0 as Reset
 import sys
 
 specname = "dynamic2"
 
-nodes = [Nodes.CareNode(), Nodes.HosNode(), Nodes.SocialNode(), Nodes.GPNode(), Nodes.InterventionNode(),
-         Nodes.InterventionNode("InterventionOpen"), Nodes.HomeNode()]
+nodes = [Nodes.CareNode(), Nodes.HosNodeV0(), Nodes.SocialNode(), Nodes.GPNode(), Nodes.InterventionNode(),
+         Nodes.InterventionNode("InterventionOpen"), Nodes.HomeNodeV0()]
 
 Intervention_cap = 2
 Open_Intervention = True

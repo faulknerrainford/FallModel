@@ -1,6 +1,3 @@
-# TODO: Check and update all specifications to use correct versions of classes. Track here which have been updated and
-#       changed in this to do.
-#       update resets to resets_v0
 # from FallModel import Fall_nodes as Nodes
 # from FallModel import Fall_Monitor as Monitor
 # from FallModel import Fall_Balancer as Balancer
@@ -17,7 +14,8 @@
 # Intervention_cap = <integer>
 # Open_Intervention = <boolean>
 # Open_Intervention_cap = <integer>
-#
+# Open_Intervention_Limits = <List of strings>
+# #
 # savedirectory = <output_directory>
 #
 # database_uri = "bolt://localhost:7687"
@@ -28,4 +26,3 @@
 # Structure_auth = ("Structure", "struct")
 # Reset_auth = ("dancer", "dancer")
 # Monitor_auth = ("monitor", "monitor")
-#

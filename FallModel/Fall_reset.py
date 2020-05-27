@@ -1,20 +1,20 @@
-from Fall_agent import FallAgent as FallAgent
+from FallModel.Fall_agent import FallAgent
 from SPmodelling.Interface import Interface
 from SPmodelling import Reset as SPReset
 import specification
 
-# TODO: New reset function with new values: energy, mood, mobility and inclination
 
 class Reset(SPReset.Reset):
     """
     Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
-    populates them with fall agents
+    populates them with patients
     """
     def __init__(self):
         """
-        Set the reset script name to Fall Model so, see specification for individualised script names and reset settings
+        Set the reset script name to SocialFallModel, see specification for individualised script names and reset
+        settings
         """
-        super(Reset, self).__init__("FallModel")
+        super(Reset, self).__init__("SocialFallModel")
 
     @staticmethod
     def set_nodes(tx):
@@ -31,7 +31,7 @@ class Reset(SPReset.Reset):
         tx.run("CREATE (a:Node {name:'Home', energy:0.3})")
         tx.run("CREATE (a:Node {name:'Social', energy:-0.4, modm:0.05, mood:0.2})")
         tx.run("CREATE (a:Node {name:'Intervention', energy:-0.8, modm:0.3, mood:0.3, cap:{c}, load:0})",
-               c=specification.Intevention_cap)
+               c=specification.Intervention_cap)
         if specification.Open_Intervention:
             tx.run("CREATE (a:Node {name:'InterventionOpen', energy:-0.8, modm:0.3, mood:0.3, cap:{c}, load:0})",
                    c=specification.Open_Intervention_cap)
@@ -41,9 +41,9 @@ class Reset(SPReset.Reset):
     @staticmethod
     def set_edges(tx):
         """
-        Generates the edges used in the commonly used system graph for Fall Model simulations. The variation in edges
-        depends on existence of Open Intervention and the types of agents allows along the edge to the Open Intervention
-        node, this is given in the specification file.
+        Generates the edges used in the commonly used system graph for Social Fall Model simulations. The variation in
+        edges depends on existence of Open Intervention and the types of agents allows along the edge to the Open
+        Intervention node, this is given in the specification file.
 
         :param tx: neo4j database write transaction
 
@@ -128,8 +128,7 @@ class Reset(SPReset.Reset):
             fa.generator(tx, intf, [0.8, 0.9, 1, [2, 0, 1, 2]])
 
 
-
-class Reset_v0(SPReset.Reset):
+class ResetV0(SPReset.Reset):
     """
     Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
     populates them with fall agents
@@ -138,7 +137,7 @@ class Reset_v0(SPReset.Reset):
         """
         Set the reset script name to Fall Model so, see specification for individualised script names and reset settings
         """
-        super(Reset, self).__init__("FallModel")
+        super(ResetV0, self).__init__("FallModel")
 
     @staticmethod
     def set_nodes(tx):
@@ -155,7 +154,7 @@ class Reset_v0(SPReset.Reset):
         tx.run("CREATE (a:Node {name:'Home', energy:0.3})")
         tx.run("CREATE (a:Node {name:'Social', energy:-0.4, modm:0.05, modc:0.2, modrc:0.2})")
         tx.run("CREATE (a:Node {name:'Intervention', energy:-0.8, modm:0.3, modc:0.3, cap:{c}, load:0})",
-               c=specification.Intevention_cap)
+               c=specification.Intervention_cap)
         if specification.Open_Intervention:
             tx.run("CREATE (a:Node {name:'InterventionOpen', energy:-0.8, modm:0.3, modc:0.3, cap:{c}, load:0})",
                    c=specification.Open_Intervention_cap)
