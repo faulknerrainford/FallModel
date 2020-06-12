@@ -1,6 +1,7 @@
 from FallModel.Fall_agent import FallAgent
 from SPmodelling.Interface import Interface
 from SPmodelling import Reset as SPReset
+import numpy.random as npr
 import specification
 
 
@@ -116,6 +117,7 @@ class Reset(SPReset.Reset):
     def generate_population(tx, ps):
         """
         Generates the required number of agents and starts them at the Home node.
+        Builds social connections between agents.
 
         :param tx: neo4j database write transaction
         :param ps: population size
@@ -124,8 +126,20 @@ class Reset(SPReset.Reset):
         """
         fa = FallAgent(None)
         intf = Interface()
+        for j in range(ps/4):
+            tx.run("CREATE (a:Carer {id:{j_id}, energy:20})", j_id=j)
         for i in range(ps):
-            fa.generator(tx, intf, [0.8, 0.9, 1, [2, 0, 1, 2]])
+            fa.generator(tx, intf, [0.8, 0.9, 1, [2, 0, 1, 2, 2, 8]])
+            if npr.random(1) < 0.5:
+                intf.createedge(i, npr.sample(range(ps/4)), 'Agent', 'Carer', 'SOCIAL:FRIEND', 'created: '
+                                + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: True')
+                if npr.random(1) < 0.5:
+                    intf.createedge(i, npr.sample(range(ps/4)), 'Agent', 'Carer', 'SOCIAL:FRIEND', 'created: '
+                                    + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: True')
+        for i in range(ps):
+            for j in range(npr.sample(range(3))):
+                intf.createedge(i, npr.sample(range(ps)), 'Agent', 'Agent', 'SOCIAL:FRIEND', 'created: '
+                                + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: False')
 
 
 class ResetV0(SPReset.Reset):
