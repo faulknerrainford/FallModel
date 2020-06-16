@@ -5,5 +5,4 @@ The SPm function clears the database, sets a clock and an output tag based on th
 specification. It then runs the Rest classes set_nodes, set_edges and generate_population functions in order.
 
 .. autoclass:: Fall_reset.Reset
-    :special-members:
     :members:

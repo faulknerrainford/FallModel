@@ -1,9 +1,9 @@
 from FallModel import Fall_nodes as Nodes
-from FallModel import Fall_Monitor as Monitor
-from FallModel import Fall_Balancer as Balancer
-from FallModel import Fall_agent as Agents
+from FallModel import Monitor as Monitor
+from FallModel import Balancer as Balancer
+from FallModel import FallAgent as Agent
 from FallModel import Fall_Population as Population
-from FallModel import Fall_reset as Reset
+from FallModel import ResetV0 as Reset
 import sys
 
 specname = "atrisk4"
