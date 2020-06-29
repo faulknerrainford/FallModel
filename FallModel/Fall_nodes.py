@@ -53,7 +53,7 @@ class FallNode(Node):
                     if not agent["referral"] and edge["ref"]:
                         view.remove(edge)
                     else:
-                        allowed = edge["allowed"].split(',')
+                        allowed = edge["allowed"]
                         if not agent["wellbeing"] in allowed:
                             view.remove(edge)
             destinations = [edge.end_node["name"] for edge in view]

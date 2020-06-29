@@ -1,12 +1,12 @@
 from FallModel import Fall_nodes as Nodes
-from FallModel import Fall_Monitor as Monitor
+# from FallModel import Fall_Monitor as Monitor
 from FallModel import Fall_Balancer as Balancer
 from FallModel import Patient as Agent
 from FallModel import Fall_Population as Population
 from FallModel import Fall_reset as Reset
 import sys
 
-specname = socialV1Test
+specname = "socialV1Test"
 
 nodes = [Nodes.CareNode(), Nodes.HosNode(), Nodes.SocialNode(), Nodes.GPNode(), Nodes.InterventionNode(),
          Nodes.InterventionNode("InterventionOpen"), Nodes.HomeNode()]

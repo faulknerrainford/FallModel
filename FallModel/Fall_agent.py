@@ -41,10 +41,11 @@ class Patient(MobileAgent, CommunicativeAgent):
         self.energy = npr.normal(energy, 0.05)
         self.mood = npr.normal(mood, 0.05)
         self.inclination = [npr.normal(x) for x in inclination]
-        self.inclination = self.inclination / sum(self.inclination)
+        self.inclination = [inc/sum(self.inclination) for inc in self.inclination]
         self.wellbeing = "'At risk'"
         self.referral = "false"
-        self.social = npr.sample(range(min_social, max_social+1))
+        self.social = npr.choice(range(min_social, max_social+1), 1)[0]
+        print(self.social)
         # Add agent with params to ind in graph with resources starting at 0
         time = tx.run("MATCH (a:Clock) RETURN a.time").values()[0][0]
         self.log = "(CREATED," + str(time) + ")"
@@ -135,9 +136,15 @@ class Patient(MobileAgent, CommunicativeAgent):
             if not options:
                 return None
             types = [edge["type"] for edge in options]
-            weights = [self.inclination[label] for label in types]
-            weights = [w / sum(weights) for w in weights]
-            choice = npr.choice(options, 1, p=weights)
+            edge_types = ["social", "fall", "medical", "inactive"]
+            types = [edge_types.index(lable) for lable in types]
+            weights = [self.positive(self.inclination[label]) for label in types]
+            if sum(weights):
+                weights = [w / sum(weights) for w in weights]
+                sample = npr.choice(range(len(options)), 1, p=weights)
+            else:
+                sample = npr.choice(range(len(options)), 1)
+            choice = options[sample[0]]
         return choice
 
     def learn(self, tx, intf, choice):
@@ -241,21 +248,23 @@ class Patient(MobileAgent, CommunicativeAgent):
         super(Patient, self).payment(tx, intf)
         # Deduct energy used on edge
         if "energy" in self.choice.keys():
-            if self.choice["energy"]+self.choice.end_node["energy"] < self.current_energy:
-                # Check for carers
-                carers = intf.agentcontacts(tx, self.id, "Agent", "Carer")
-                # Check for sufficient energy
-                for carer in carers:
-                    if carer.end_node["energy"] >= self.choice["energy"]:
-                        intf.updatenode(tx, carer.end_node["id"], "energy", carer.end_node["energy"]
-                                        - self.choice["energy"], label='Carer')
-                        self.current_energy = self.current_energy+self.choice["energy"]
-                        intf.updateagent(tx, self.id, "energy", self.current_energy)
-                        intf.updatecontactedge(tx, self.id, carer.end_node["id"], "usage", intf.gettime(), "Agent",
-                                               "Carer")
-                        break
-                else:
-                    return False
+            if "energy" in self.choice.end_node.keys():
+                if self.choice["energy"]+self.choice.end_node["energy"] < self.current_energy:
+                    # Check for carers
+                    carers = intf.agentcontacts(tx, self.id, "Agent", "Carer")
+                    # Check for sufficient energy
+                    for carer in carers:
+                        print(carer)
+                        if carer.end_node["energy"] >= self.choice["energy"]:
+                            intf.updatenode(tx, carer.end_node["id"], "energy", carer.end_node["energy"]
+                                            - self.choice["energy"], label='Carer')
+                            self.current_energy = self.current_energy+self.choice["energy"]
+                            intf.updateagent(tx, self.id, "energy", self.current_energy)
+                            intf.updatecontactedge(tx, self.id, carer.end_node["id"], "usage", intf.gettime(tx), "Agent",
+                                                   "Carer")
+                            break
+                    else:
+                        return False
             self.current_energy = npr.normal(self.choice["energy"], 0.05) + self.current_energy
             intf.updateagent(tx, self.id, "energy", self.current_energy)
         # mod variables based on edges
@@ -314,7 +323,7 @@ class Patient(MobileAgent, CommunicativeAgent):
         self.log = self.log + ", (" + entry + ")"
         intf.updateagent(tx, self.id, "log", str(self.log))
 
-    def view(self, tx, intf):
+    def look(self, tx, intf):
         """
         If not at home, find co-located agents
 
@@ -323,11 +332,12 @@ class Patient(MobileAgent, CommunicativeAgent):
 
         :return: None
         """
-        super(Patient, self).view(tx, intf)
+        super(Patient, self).look(tx, intf)
+        self.id = self.id[0]
         # If not at home, find co-located agents
-        if intf.locateagent(tx, self.id).name != "Home":
+        if intf.locateagent(tx, self.id)["name"] != "Home":
             self.colocated = intf.colocated(tx, self.id)
-        self.social = intf.getagentvalue(tx, self.id, "social")
+        self.social = intf.getnodevalue(tx, self.id, "social", "Agent")
 
     def update(self, tx, intf):
         """
@@ -341,9 +351,10 @@ class Patient(MobileAgent, CommunicativeAgent):
         super(Patient, self).update(tx, intf)
         # Update existing com links with latest co-location
         self.contacts = intf.agentcontacts(tx, self.id, "Patient")
-        update = [contact for contact in self.contacts if contact in self.colocated]
-        for contact in update:
-            intf.updatecontactedge(tx, contact.end_node["id"], self.id, "last_usage", intf.gettime())
+        if self.contacts and self.colocated:
+            update = [contact for contact in self.contacts if contact in self.colocated]
+            for contact in update:
+                intf.updatecontactedge(tx, contact.end_node["id"], self.id, "last_usage", intf.gettime())
 
     def talk(self, tx, intf):
         """
@@ -356,31 +367,34 @@ class Patient(MobileAgent, CommunicativeAgent):
         :return: None
         """
         super(Patient , self).talk(tx, intf)
-        newcontacts = [nc for nc in self.colocated if nc not in self.contacts]
-        if newcontacts:
-            if len(newcontacts) > 1:
-                newfriend = npr.sample(newcontacts)
-            else:
-                newfriend = newcontacts
-            # Based on relative social values and length of shortest path set probability for forming link with a
-            #  randomly sampled co-located unknown agent. social from 2-8 per agent, combined from 4-16. So combined -4
-            #  over 24 gives value between 0 and 0.5 plus the if minimum path greater than 6 nothing, else from m=2-6
-            #  then 1/(2m-2) gives 0.1-0.5 (m=1 or 0 means itself or already connected).
-            prob1 = (newfriend.end_node["social"]+self.social-4)/24
-            sp = intf.shortestpath(tx, self.id, newfriend.end_node["id"], 'Agent', 'Social')
-            if sp < 2:
-                prob2 = 0
-            elif sp > 6:
-                prob2 = 0
-            else:
-                prob2 = 1/(2*sp-2)
-            if npr.random(1) <= (prob1 + prob2):
+        if self.colocated:
+            newcontacts = [nc for nc in self.colocated if nc not in self.contacts]
+            if newcontacts:
+                if len(newcontacts) > 1:
+                    newfriend = npr.sample(newcontacts)
+                else:
+                    newfriend = newcontacts
+                # Based on relative social values and length of shortest path set probability for forming link with a
+                #  randomly sampled co-located unknown agent. social from 2-8 per agent, combined from 4-16. So combined -4
+                #  over 24 gives value between 0 and 0.5 plus the if minimum path greater than 6 nothing, else from m=2-6
+                #  then 1/(2m-2) gives 0.1-0.5 (m=1 or 0 means itself or already connected).
+                prob1 = (newfriend.end_node["social"]+self.social-4)/24
+                sp = intf.shortestpath(tx, self.id, newfriend.end_node["id"], 'Agent', 'Social')
+                if sp < 2:
+                    prob2 = 0
+                elif sp > 6:
+                    prob2 = 0
+                else:
+                    prob2 = 1/(2*sp-2)
+                if npr.random(1) <= (prob1 + prob2):
                 # form friend link
-                intf.createedge(self.id, newfriend.end_node["id"], 'Agent', 'Agent', 'SOCIAL:FRIEND', 'created: '
-                                + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: False')
-            self.contacts = newfriend
-        else:
-            self.contacts = None
+                    intf.createedge(self.id, newfriend.end_node["id"], 'Agent', 'Agent', 'SOCIAL:FRIEND', 'created: '
+                                  + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: False')
+                    self.contacts = newfriend
+                else: self.contacts = None
+            else:
+                self.contacts = None
+        else: self.contacts = None
 
     def listen(self, tx, intf):
         """
@@ -412,7 +426,7 @@ class Patient(MobileAgent, CommunicativeAgent):
         :return: None
         """
         super(Patient, self).react(tx, intf)
-        contacts = intf.agentcontacts(tx, self.id, "Agent")
+        self.contacts = intf.agentcontacts(tx, self.id, "Agent")
         carers = self.contacts + intf.agentcontacts(tx, self.id, "Agent", "Carer")
         if len(self.contacts) > self.social:
             while len(carers) > self.social:

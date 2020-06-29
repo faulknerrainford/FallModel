@@ -1,11 +1,11 @@
-from FallModel.Fall_agent import FallAgent
+from FallModel.Fall_agent import FallAgent, Patient
 from SPmodelling.Interface import Interface
-from SPmodelling import Reset as SPReset
+from SPmodelling.Reset import Reset as SPreset
 import numpy.random as npr
 import specification
 
 
-class Reset(SPReset.Reset):
+class Reset(SPreset):
     """
     Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
     populates them with patients
@@ -28,13 +28,13 @@ class Reset(SPReset.Reset):
 
         :return: None
         """
-        tx.run("CREATE (a:Node {name:'Hos', energy:0.2, modm:-0.1, mood:-0.05})")
+        tx.run("CREATE (a:Node {name:'Hos', energy:0.2, modm:-0.1, modmood:-0.05})")
         tx.run("CREATE (a:Node {name:'Home', energy:0.3})")
-        tx.run("CREATE (a:Node {name:'Social', energy:-0.4, modm:0.05, mood:0.2})")
-        tx.run("CREATE (a:Node {name:'Intervention', energy:-0.8, modm:0.3, mood:0.3, cap:{c}, load:0})",
+        tx.run("CREATE (a:Node {name:'Social', energy:-0.4, modm:0.05, modmood:0.2})")
+        tx.run("CREATE (a:Node {name:'Intervention', energy:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
                c=specification.Intervention_cap)
         if specification.Open_Intervention:
-            tx.run("CREATE (a:Node {name:'InterventionOpen', energy:-0.8, modm:0.3, mood:0.3, cap:{c}, load:0})",
+            tx.run("CREATE (a:Node {name:'InterventionOpen', energy:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
                    c=specification.Open_Intervention_cap)
         tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0})")
         tx.run("CREATE (a:Node {name:'GP'})")
@@ -124,25 +124,32 @@ class Reset(SPReset.Reset):
 
         :return: None
         """
-        fa = FallAgent(None)
+        fa = Patient(None)
         intf = Interface()
-        for j in range(ps/4):
+        for j in range(ps//4):
             tx.run("CREATE (a:Carer {id:{j_id}, energy:20})", j_id=j)
         for i in range(ps):
-            fa.generator(tx, intf, [0.8, 0.9, 1, [2, 0, 1, 2, 2, 8]])
+            fa.generator(tx, intf, [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8])
             if npr.random(1) < 0.5:
-                intf.createedge(i, npr.sample(range(ps/4)), 'Agent', 'Carer', 'SOCIAL:FRIEND', 'created: '
-                                + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: True')
-                if npr.random(1) < 0.5:
-                    intf.createedge(i, npr.sample(range(ps/4)), 'Agent', 'Carer', 'SOCIAL:FRIEND', 'created: '
-                                    + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: True')
+                if npr.random(1)< 0.5:
+                    samplesize = 2
+                else:
+                    samplesize = 1
+                newfriends = npr.choice(range(ps//4), size=samplesize, replace=False)
+                for nf in newfriends:
+                    intf.createedge(tx, i, nf, 'Agent', 'Carer', 'SOCIAL', 'created: '
+                                    + str(intf.gettime(tx)) + ', usage: ' + str(intf.gettime(tx)) + ', carer: True')
+                    intf.createedge(tx, i, nf, 'Agent', 'Carer', 'FRIEND')
         for i in range(ps):
-            for j in range(npr.sample(range(3))):
-                intf.createedge(i, npr.sample(range(ps)), 'Agent', 'Agent', 'SOCIAL:FRIEND', 'created: '
-                                + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: False')
+            newfriends = npr.choice(range(ps), size=npr.choice(range(3)), replace=False)
+            for nf in newfriends:
+                if not nf == i:
+                    intf.createedge(tx, i, nf, 'Agent', 'Agent', 'SOCIAL', 'created: '
+                                    + str(intf.gettime(tx)) + ', usage: ' + str(intf.gettime(tx)) + ', carer: False')
+                    intf.createedge(tx, i, nf, 'Agent', 'Agent', 'FRIEND')
 
 
-class ResetV0(SPReset.Reset):
+class ResetV0(SPreset):
     """
     Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
     populates them with fall agents
