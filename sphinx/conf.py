@@ -59,5 +59,7 @@ html_static_path = ['_static']
 
 latex_elements = {}
 latex_documents = [
-    (master_doc, 'SPmodelling.tex', u' Socio-Physical Modelling', u'Penny Faulkner Rainford', 'manual'),
+    (master_doc, 'FallModel.tex', u' Socio-Physical Modelling', u'Penny Faulkner Rainford', 'manual'),
 ]
+
+autodoc_mock_imports = ["SPmodelling", "FallModel"]

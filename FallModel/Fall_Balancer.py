@@ -1,6 +1,7 @@
 from statistics import mean
 import logging
 from SPmodelling import Balancer
+import SPmodelling.Interface as intf
 import specification
 
 
@@ -23,13 +24,12 @@ def parselog(log):
     return log
 
 
-def timesincedischarge(txl, intf):
+def timesincedischarge(txl):
     """
     Utility function reports the time between any hospital discharge and attending an intervention. Only recorded if
     both events occur.
 
     :param txl: neo4j database write transaction
-    :param intf: Interface for database calls
 
     :return: list of times in integer timesteps
     """
@@ -45,7 +45,7 @@ def timesincedischarge(txl, intf):
     return times
 
 
-def adjustcapasity(txl, intf, history, dynamic=True):
+def adjustcapasity(txl, history, dynamic=True):
     """
     Rule function that applies the capacity change algorithm in the  case of two intervention node systems. This is uses
     a history variable that is cleared when the capacity is adjusted so that another five timesteps must pass before the
@@ -53,12 +53,12 @@ def adjustcapasity(txl, intf, history, dynamic=True):
     modified.
 
     :param txl: neo4j database write transaction
-    :param intf: Interface for database calls
     :param history: List of previous average times since discharge
+    :param dynamic: indicates if adjustment to OpenIntervention is needed
 
     :return: history
     """
-    currenttimes = timesincedischarge(txl, intf)
+    currenttimes = timesincedischarge(txl)
     if not currenttimes and history:
         currentav = history[-1]
     elif not currenttimes:
@@ -73,12 +73,13 @@ def adjustcapasity(txl, intf, history, dynamic=True):
         if history[-5] - history[-1] < -1 and history[-1] > 5:
             if dynamic:
                 if intf.getnodevalue(txl, "InterventionOpen", "cap", uid="name") > 0 and dynamic:
-                    intf.updatenode(txl, "Intervention", "cap", intf.getnodevalue(txl, "Intervention", "cap", uid="name")
-                                + 1, "name")
+                    intf.updatenode(txl, "Intervention", "cap",
+                                    intf.getnodevalue(txl, "Intervention", "cap", uid="name")
+                                    + 1, "name")
                     intf.updatenode(txl, "InterventionOpen", "cap", intf.getnodevalue(txl, "InterventionOpen", "cap",
-                                                                                  uid="name") - 1, "name")
+                                                                                      uid="name") - 1, "name")
             else:
-                    intf.updatenode(txl, "Intervention", "cap", intf.getnodevalue(txl, "Intervention", "cap", uid="name")
+                intf.updatenode(txl, "Intervention", "cap", intf.getnodevalue(txl, "Intervention", "cap", uid="name")
                                 + 1, "name")
             return []
         elif history[-5] - history[-1] > 0 and history[-1] < 5:
@@ -103,13 +104,12 @@ class FlowReaction(Balancer.FlowReaction):
         super(FlowReaction, self).__init__(uri, author)
         self.storage = []
 
-    def applyrules(self, txl, intf):
+    def applyrules(self, txl):
         """
         Applies the adjust capacity rule
 
         :param txl: neo4j database write transaction
-        :param intf: Interface for database calls
 
         :return: None
         """
-        self.storage = adjustcapasity(txl, intf, self.storage, specification.dynamic)
+        self.storage = adjustcapasity(txl, self.storage, specification.dynamic)

@@ -127,10 +127,11 @@ Hospital Prediction
 
 We predict the time an agent will spend in hospital using a sample from a normal distribution. We set the mean such that
 individuals with high mobility or high resources spend on average 5 days in hospital from a severe fall.
-.. maths::
-    mean = min(-9 min(m, 1)+14, -9(min(r_c, 1)+min(r_m, 1))+14)
 
-where :math:`m` is agent\_mobility, :math:`r_c` is agent_confidence_resources and :math:`r_m` is agent_mobility_resources.
+.. math::
+    mean = -9 min(m, 1)+14
+
+where :math:`m` is agent\_mobility
 
 *****
 Node

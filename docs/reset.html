@@ -4,7 +4,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Reset &#8212; FallModel 0.0.1 documentation</title>
+    <title>Reset &#8212; FallModel 1.0.1a documentation</title>
     <link rel="stylesheet" href="_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     
@@ -35,7 +35,7 @@
         <li class="right" >
           <a href="domain.html" title="Domain Model (UNDER CONSTRUCTION)"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">FallModel 0.0.1 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">FallModel 1.0.1a documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -53,17 +53,12 @@ specification. It then runs the Rest classes set_nodes, set_edges and generate_p
 <dt id="Fall_reset.Reset">
 <em class="property">class </em><code class="sig-prename descclassname">Fall_reset.</code><code class="sig-name descname">Reset</code><a class="headerlink" href="#Fall_reset.Reset" title="Permalink to this definition">¶</a></dt>
 <dd><p>Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
-populates them with fall agents</p>
-<dl class="py method">
-<dt id="Fall_reset.Reset.__init__">
-<code class="sig-name descname">__init__</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset.Reset.__init__" title="Permalink to this definition">¶</a></dt>
-<dd><p>Set the reset script name to Fall Model so, see specification for individualised script names and reset settings</p>
-</dd></dl>
-
+populates them with patients</p>
 <dl class="py method">
 <dt id="Fall_reset.Reset.generate_population">
 <em class="property">static </em><code class="sig-name descname">generate_population</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">ps</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset.Reset.generate_population" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generates the required number of agents and starts them at the Home node.</p>
+<dd><p>Generates the required number of agents and starts them at the Home node.
+Builds social connections between agents.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
@@ -80,9 +75,9 @@ populates them with fall agents</p>
 <dl class="py method">
 <dt id="Fall_reset.Reset.set_edges">
 <em class="property">static </em><code class="sig-name descname">set_edges</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_reset.Reset.set_edges" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generates the edges used in the commonly used system graph for Fall Model simulations. The variation in edges
-depends on existence of Open Intervention and the types of agents allows along the edge to the Open Intervention
-node, this is given in the specification file.</p>
+<dd><p>Generates the edges used in the commonly used system graph for Social Fall Model simulations. The variation in
+edges depends on existence of Open Intervention and the types of agents allows along the edge to the Open
+Intervention node, this is given in the specification file.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><p><strong>tx</strong> – neo4j database write transaction</p>
@@ -161,7 +156,7 @@ capacities are given in the specification file.</p>
         <li class="right" >
           <a href="domain.html" title="Domain Model (UNDER CONSTRUCTION)"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">FallModel 0.0.1 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">FallModel 1.0.1a documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

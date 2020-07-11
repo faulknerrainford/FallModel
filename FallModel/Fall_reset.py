@@ -1,5 +1,5 @@
 from FallModel.Fall_agent import FallAgent, Patient
-from SPmodelling.Interface import Interface
+import SPmodelling.Interface as intf
 from SPmodelling.Reset import Reset as SPreset
 import numpy.random as npr
 import specification
@@ -125,13 +125,12 @@ class Reset(SPreset):
         :return: None
         """
         fa = Patient(None)
-        intf = Interface()
         for j in range(ps//4):
             tx.run("CREATE (a:Carer {id:{j_id}, energy:20})", j_id=j)
         for i in range(ps):
-            fa.generator(tx, intf, [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8])
+            fa.generator(tx, [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8])
             if npr.random(1) < 0.5:
-                if npr.random(1)< 0.5:
+                if npr.random(1) < 0.5:
                     samplesize = 2
                 else:
                     samplesize = 1
@@ -271,6 +270,5 @@ class ResetV0(SPreset):
         :return: None
         """
         fa = FallAgent(None)
-        intf = Interface()
         for i in range(ps):
-            fa.generator(tx, intf, [0.8, 0.9, 1])
+            fa.generator(tx, [0.8, 0.9, 1])
