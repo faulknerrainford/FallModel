@@ -3,7 +3,7 @@ import pickle
 import numpy as np
 from matplotlib import pyplot as plt
 from FallModel.Fall_Balancer import timesincedischarge
-from SPmodelling.Interface import Interface
+import SPmodelling.Interface as intf
 from statistics import mean
 from SPmodelling.Monitor import Monitor as SPMonitor
 import specification
@@ -124,10 +124,9 @@ class Monitor(SPMonitor):
                 self.y13 = pylab.append(self.y13, 0)
                 self.p13.set_data(self.t, self.y13)
             # Update plot 2 - Hos to Int
-            intf = Interface()
-            gaps = timesincedischarge(txl, intf)
+            gaps = timesincedischarge(txl)
             if gaps:
-                hiint = mean(timesincedischarge(txl, intf))
+                hiint = mean(timesincedischarge(txl))
                 self.y3storage = self.y3storage + [hiint]
                 if len(self.y3storage) >= 10:
                     self.y3storage = self.y3storage[-10:]
@@ -194,7 +193,6 @@ class Monitor(SPMonitor):
         :return: None
         """
         super(Monitor, self).close(txc)
-        intf = Interface()
         runname = intf.getrunname(txc)
         print(self.clock)
         logs = txc.run("MATCH (a:Agent) RETURN a.log").values()

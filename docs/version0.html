@@ -1,0 +1,362 @@
+
+<!DOCTYPE html>
+
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Version 0 Algorithms &#8212; FallModel 1.0.1a documentation</title>
+    <link rel="stylesheet" href="_static/classic.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    
+    <script id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script src="_static/jquery.js"></script>
+    <script src="_static/underscore.js"></script>
+    <script src="_static/doctools.js"></script>
+    <script src="_static/language_data.js"></script>
+    <script async="async" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/latest.js?config=TeX-AMS-MML_HTMLorMML"></script>
+    
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="prev" title="Monitor" href="monitor.html" /> 
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="monitor.html" title="Monitor"
+             accesskey="P">previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">FallModel 1.0.1a documentation</a> &#187;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <div class="section" id="version-0-algorithms">
+<h1>Version 0 Algorithms<a class="headerlink" href="#version-0-algorithms" title="Permalink to this headline">¶</a></h1>
+<p>This contains the algorithms used in the version 0 classes of the system. These are relevant to replication of results
+found in the original 2020 ALife SPmodelling paper.  These algorithms are preserved here for reference, the
+documentation for the version 0 class and functions in the main body of documentation. Older version classes are marked
+as &lt;class&gt;V&lt;version number&gt;.</p>
+<div class="section" id="fall-agent-algorithm">
+<h2>Fall Agent Algorithm<a class="headerlink" href="#fall-agent-algorithm" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>Perception</dt><dd><ul class="simple">
+<li><p>Remove Edges where Agent.Energy &lt; Edge.Energy + Edge.End_Node.Energy</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Choose</dt><dd><ul class="simple">
+<li><p>Remove Edges where Node.Effort &gt; Edge.Mobility*(Agent.Mobility + Agent.Confidence*Agent.Mobility_Resources) + Edge.Confidence(Agent.Confidence + Agent.Mobility*Agent.Confidence_Resources)</p></li>
+<li><p>Select Edge with max(Edge.worth)</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Move</dt><dd><ul class="simple">
+<li><p>Delete Agents existing location edge</p></li>
+<li><p>Create new edge from agent to Edge.End_Node for the selected Edge</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Payment</dt><dd><ul class="simple">
+<li><p>Deduct Edge.Energy from Agent.Energy</p></li>
+<li><dl class="simple">
+<dt>Add Edge.Mobility_Modifier to Agent.Mobility</dt><dd><ul>
+<li><dl class="simple">
+<dt>Update Agent.Wellbeing</dt><dd><ul>
+<li><p>If Agent.Mobility &lt;= 0: Agent.Wellbeing = “Fallen”</p></li>
+<li><p>Else If Agent.Mobility &gt; 1: Agent.Wellbeing = “Healthy”</p></li>
+<li><p>Else If Agent.Wellbeing == “Healthy”: Agent.Wellbeing = “At Risk”</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Add Edge.Confidence_Modifier to Agent.Confidence</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Learning</dt><dd><ul class="simple">
+<li><p>Deduct Edge.End_Node.Energy from Agent.Energy</p></li>
+<li><dl class="simple">
+<dt>Add Edge.End_Node.Mobility_Modifier to Agent.Mobility</dt><dd><ul>
+<li><dl class="simple">
+<dt>Update Agent.Wellbeing</dt><dd><ul>
+<li><p>If Agent.Mobility &lt;= 0: Agent.Wellbeing = “Fallen”</p></li>
+<li><p>Else If Agent.Mobility &gt; 1: Agent.Wellbeing = “Healthy”</p></li>
+<li><p>Else If Agent.Wellbeing == “Healthy”: Agent.Wellbeing = “At Risk”</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p>Add Edge.End_Node.Confidence to Agent.Confidence</p></li>
+<li><p>Add Edge.End_Node.Confidence_Resources to Agent.Confidence_Resources</p></li>
+<li><p>Add Edge.End_Node.Mobility_Resources to Agent.Mobility_Resources</p></li>
+<li><dl class="simple">
+<dt>If Edge.End_Node is Care node:</dt><dd><p>Log Agent entering Care</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If Edge.End_Node has a capacity:</dt><dd><p>Add 1 to Edge.End_Node.Load</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If Agent has left Hospital:</dt><dd><p>Log Agent being Discharged</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Prediction*</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>If Edge.End_Node has Queue:</dt><dd><p>Run Agent prediction at new node</p>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+</div>
+<div class="section" id="agent-code">
+<h2>Agent Code<a class="headerlink" href="#agent-code" title="Permalink to this headline">¶</a></h2>
+<dl class="py class">
+<dt id="Fall_agent.FallAgent">
+<em class="property">class </em><code class="sig-prename descclassname">Fall_agent.</code><code class="sig-name descname">FallAgent</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">agent_id</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent" title="Permalink to this definition">¶</a></dt>
+<dd><p>Agent for modelling patients with declining mobility</p>
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.choose">
+<code class="sig-name descname">choose</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.choose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Agents conscious choice from possible edges. This is based on the effort of the agent calculated from the
+combination of agent and edge values. If the agent has the effort for multiple choices the worth of the edge is
+used as a deciding factor.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>perc</strong> – perception from node perception function.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>single edge as final choice</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.generator">
+<code class="sig-name descname">generator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">params</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.generator" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generates Fall Agents and inserts them into the network at the home node.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>self</strong> – Agent</p></li>
+<li><p><strong>tx</strong> – neo4j database transaction with write permission</p></li>
+<li><p><strong>params</strong> – [mobility, confidence, energy] these are the means for the normal distributions sampled to set parameters</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.learn">
+<code class="sig-name descname">learn</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">choice</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.learn" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Agent is changed by node and can change node and edge it arrived by. This can include changes to decision</dt><dd><p>making parameters.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>choice</strong> – Chosen edge for move</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.logging">
+<code class="sig-name descname">logging</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">entry</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.logging" title="Permalink to this definition">¶</a></dt>
+<dd><p>Utility function for adding information to the agents log of its activities</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>entry</strong> – String to be added to the log</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.move">
+<code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.move" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs complete agent movement algorithm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>intf</strong> – Interface for database calls</p></li>
+<li><p><strong>perc</strong> – perception provided by the node the agent is currently located at</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>Node Agent has moved to</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.payment">
+<code class="sig-name descname">payment</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.payment" title="Permalink to this definition">¶</a></dt>
+<dd><p>Modifies chosen edge and agent. These include mobility, confidence and energy modifications.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
+<li><p><strong>intf</strong> – Interface for databse calls</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.perception">
+<code class="sig-name descname">perception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.perception" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fall agent perception function. Filters based on agent having sufficient energy for edge and end node.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>tx</strong> – neo4j write transaction</p></li>
+<li><p><strong>intf</strong> – Interface instance to simplify database calls</p></li>
+<li><p><strong>perc</strong> – perception recieved from the node</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.FallAgent.positive">
+<em class="property">static </em><code class="sig-name descname">positive</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">num</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.FallAgent.positive" title="Permalink to this definition">¶</a></dt>
+<dd><p>basic function to floor a number at zero</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>num</strong> – real number</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>real number</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+</div>
+
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+  <h3><a href="index.html">Table of Contents</a></h3>
+  <ul>
+<li><a class="reference internal" href="#">Version 0 Algorithms</a><ul>
+<li><a class="reference internal" href="#fall-agent-algorithm">Fall Agent Algorithm</a></li>
+<li><a class="reference internal" href="#agent-code">Agent Code</a></li>
+</ul>
+</li>
+</ul>
+
+  <h4>Previous topic</h4>
+  <p class="topless"><a href="monitor.html"
+                        title="previous chapter">Monitor</a></p>
+  <div role="note" aria-label="source link">
+    <h3>This Page</h3>
+    <ul class="this-page-menu">
+      <li><a href="_sources/version0.rst.txt"
+            rel="nofollow">Show Source</a></li>
+    </ul>
+   </div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="right" >
+          <a href="monitor.html" title="Monitor"
+             >previous</a> |</li>
+        <li class="nav-item nav-item-0"><a href="index.html">FallModel 1.0.1a documentation</a> &#187;</li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2020, Penny Faulkner Rainford.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 3.0.2.
+    </div>
+  </body>
+</html>

@@ -1,5 +1,6 @@
 from SPmodelling.Agent import MobileAgent, CommunicativeAgent
 import numpy.random as npr
+import SPmodelling.Interface as intf
 
 
 class Patient(MobileAgent, CommunicativeAgent):
@@ -23,28 +24,28 @@ class Patient(MobileAgent, CommunicativeAgent):
         self.colocated = None
         self.contacts = None
 
-    def generator(self, tx, intf, params):
+    def generator(self, tx, params):
         """
         Generates Fall Agents and inserts them into the network at the home node.
 
         :param self: Agent
         :param tx: neo4j database transaction with write permission
-        :param intf: An Interface() object to simplify interactions with the database
         :param params: [mobility, mood, energy, inclination] these are the means for the normal distributions sampled to set parameters
 
         :return: None
         """
-        super(Patient, self).generator(tx, intf, params)
+        super(Patient, self).generator(tx, params)
         # generate a random set of parameters based on a distribution with mean set by params
         [mobility, mood, energy, inclination, min_social, max_social] = params
         self.mobility = npr.normal(mobility, 0.05)  # draw from normal distribution centred on given value
         self.energy = npr.normal(energy, 0.05)
         self.mood = npr.normal(mood, 0.05)
         self.inclination = [npr.normal(x) for x in inclination]
-        self.inclination = self.inclination / sum(self.inclination)
+        self.inclination = [inc/sum(self.inclination) for inc in self.inclination]
         self.wellbeing = "'At risk'"
         self.referral = "false"
-        self.social = npr.sample(range(min_social, max_social+1))
+        self.social = npr.choice(range(min_social, max_social+1), 1)[0]
+        print(self.social)
         # Add agent with params to ind in graph with resources starting at 0
         time = tx.run("MATCH (a:Clock) RETURN a.time").values()[0][0]
         self.log = "(CREATED," + str(time) + ")"
@@ -67,17 +68,16 @@ class Patient(MobileAgent, CommunicativeAgent):
         else:
             return num
 
-    def perception(self, tx, intf, perc):
+    def perception(self, tx, perc):
         """
         Patient perception function. Filters based on agent having sufficient energy for edge and end node.
 
         :param tx: neo4j write transaction
-        :param intf: Interface instance to simplify database calls
         :param perc: perception recieved from the node
 
         :return: None
         """
-        super(Patient, self).perception(tx, intf, perc)
+        super(Patient, self).perception(tx, perc)
         if type(self.view) == list:
             edges = self.view
         else:
@@ -91,9 +91,6 @@ class Patient(MobileAgent, CommunicativeAgent):
             for edge in edges:
                 if not edge.end_node["name"] in ["Care", "GP", "Hos"]:
                     cost = 0
-                    if edge["energy"]: # TODO: Remove edge energy from check, if agent is short at payment they will use
-                                       #  carers or the movement will stop
-                        cost = cost + edge["energy"]
                     if edge.end_node["energy"]:
                         cost = cost + edge.end_node["energy"]
                     if self.energy > -cost:
@@ -102,19 +99,18 @@ class Patient(MobileAgent, CommunicativeAgent):
             valid_edges = self.view
         self.view = valid_edges
 
-    def choose(self, tx, intf, perc):
+    def choose(self, tx, perc):
         """
         Patients conscious choice from possible edges. This is based on the patients mood exceeds the current threshold
         for that edge. If the agent has the mood for multiple choices the final choice is made as a weighted sampling of
         all possible choices with weights based on the Patients inclination applied to the types of edges.
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for calls to database
         :param perc: perception from node perception function.
 
         :return: single edge as final choice
         """
-        super(Patient, self).choose(tx, intf, perc)
+        super(Patient, self).choose(tx, perc)
         # filter out options where the agent does not reach the mood threshold
         options = []
         self.mood = intf.getnodevalue(tx, self.id, "mood", "Patient")
@@ -135,23 +131,28 @@ class Patient(MobileAgent, CommunicativeAgent):
             if not options:
                 return None
             types = [edge["type"] for edge in options]
-            weights = [self.inclination[label] for label in types]
-            weights = [w / sum(weights) for w in weights]
-            choice = npr.choice(options, 1, p=weights)
+            edge_types = ["social", "fall", "medical", "inactive"]
+            types = [edge_types.index(lable) for lable in types]
+            weights = [self.positive(self.inclination[label]) for label in types]
+            if sum(weights):
+                weights = [w / sum(weights) for w in weights]
+                sample = npr.choice(range(len(options)), 1, p=weights)
+            else:
+                sample = npr.choice(range(len(options)), 1)
+            choice = options[sample[0]]
         return choice
 
-    def learn(self, tx, intf, choice):
+    def learn(self, tx, choice):
         """
         Agent is changed by node and can change node and edge it arrived by. This can include changes to decision
          making parameters.
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for database interaction
         :param choice: Chosen edge for move
 
         :return: None
         """
-        super(Patient, self).learn(tx, intf, choice)
+        super(Patient, self).learn(tx, choice)
         # modify mob, conf, res and energy based on new node
         if self.fall and self.fall != "Mild":
             if self.wellbeing != "Fallen":
@@ -229,33 +230,34 @@ class Patient(MobileAgent, CommunicativeAgent):
             self.log = self.log + ", (Discharged, " + str(clock) + ")"
         intf.updateagent(tx, self.id, "log", str(self.log))
 
-    def payment(self, tx, intf):
+    def payment(self, tx):
         """
         Modifies chosen edge and agent. These include mobility, confidence and energy modifications.
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for databse calls
 
         :return: None
         """
-        super(Patient, self).payment(tx, intf)
+        super(Patient, self).payment(tx)
         # Deduct energy used on edge
         if "energy" in self.choice.keys():
-            if self.choice["energy"]+self.choice.end_node["energy"] < self.current_energy:
-                # Check for carers
-                carers = intf.agentcontacts(tx, self.id, "Agent", "Carer")
-                # Check for sufficient energy
-                for carer in carers:
-                    if carer.end_node["energy"] >= self.choice["energy"]:
-                        intf.updatenode(tx, carer.end_node["id"], "energy", carer.end_node["energy"]
-                                        - self.choice["energy"], label='Carer')
-                        self.current_energy = self.current_energy+self.choice["energy"]
-                        intf.updateagent(tx, self.id, "energy", self.current_energy)
-                        intf.updatecontactedge(tx, self.id, carer.end_node["id"], "usage", intf.gettime(), "Agent",
-                                               "Carer")
-                        break
-                else:
-                    return False
+            if "energy" in self.choice.end_node.keys():
+                if self.choice["energy"]+self.choice.end_node["energy"] > self.current_energy:
+                    # Check for carers
+                    carers = intf.agentcontacts(tx, self.id, "Agent", "Carer")
+                    # Check for sufficient energy
+                    for carer in carers:
+                        print(carer)
+                        if carer.end_node["energy"] >= self.choice["energy"]:
+                            intf.updatenode(tx, carer.end_node["id"], "energy", carer.end_node["energy"]
+                                            - self.choice["energy"], label='Carer')
+                            self.current_energy = self.current_energy+self.choice["energy"]
+                            intf.updateagent(tx, self.id, "energy", self.current_energy)
+                            intf.updatecontactedge(tx, self.id, carer.end_node["id"], "usage", intf.gettime(tx), "Agent",
+                                                   "Carer")
+                            break
+                    else:
+                        return False
             self.current_energy = npr.normal(self.choice["energy"], 0.05) + self.current_energy
             intf.updateagent(tx, self.id, "energy", self.current_energy)
         # mod variables based on edges
@@ -288,24 +290,22 @@ class Patient(MobileAgent, CommunicativeAgent):
             intf.updateagent(tx, self.id, "mood", self.mood)
         return True
 
-    def move(self, tx, intf, perc):
+    def move(self, tx, perc):
         """
         Runs complete agent movement algorithm.
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for database calls
         :param perc: perception provided by the node the agent is currently located at
 
         :return: Node Agent has moved to
         """
-        super(Patient, self).move(tx, intf, perc)
+        super(Patient, self).move(tx, perc)
 
-    def logging(self, tx, intf, entry):
+    def logging(self, tx, entry):
         """
         Utility function for adding information to the agents log of its activities
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for database calls
         :param entry: String to be added to the log
 
         :return: None
@@ -314,85 +314,86 @@ class Patient(MobileAgent, CommunicativeAgent):
         self.log = self.log + ", (" + entry + ")"
         intf.updateagent(tx, self.id, "log", str(self.log))
 
-    def view(self, tx, intf):
+    def look(self, tx):
         """
         If not at home, find co-located agents
 
         :param tx: neo4j database write transaction
-        :param intf:  Interface for database calls
 
         :return: None
         """
-        super(Patient, self).view(tx, intf)
+        super(Patient, self).look(tx)
+        self.id = self.id[0]
         # If not at home, find co-located agents
-        if intf.locateagent(tx, self.id).name != "Home":
+        if intf.locateagent(tx, self.id)["name"] != "Home":
             self.colocated = intf.colocated(tx, self.id)
-        self.social = intf.getagentvalue(tx, self.id, "social")
+        self.social = intf.getnodevalue(tx, self.id, "social", "Agent")
 
-    def update(self, tx, intf):
+    def update(self, tx):
         """
         Check agent contacts compare list with co-located agents and update co-located contacts with new last usage
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for database calls
 
         :return: None
         """
-        super(Patient, self).update(tx, intf)
+        super(Patient, self).update(tx)
         # Update existing com links with latest co-location
         self.contacts = intf.agentcontacts(tx, self.id, "Patient")
-        update = [contact for contact in self.contacts if contact in self.colocated]
-        for contact in update:
-            intf.updatecontactedge(tx, contact.end_node["id"], self.id, "last_usage", intf.gettime())
+        if self.contacts and self.colocated:
+            update = [contact for contact in self.contacts if contact in self.colocated]
+            for contact in update:
+                intf.updatecontactedge(tx, contact.end_node["id"], self.id, "last_usage", intf.gettime())
 
-    def talk(self, tx, intf):
+    def talk(self, tx):
         """
         Determine if agent forms a new social link with random co-located agent based on their social values and
         shortest social path
 
         :param tx: neo4j write transaction
-        :param intf: Interface for database calls
 
         :return: None
         """
-        super(Patient , self).talk(tx, intf)
-        newcontacts = [nc for nc in self.colocated if nc not in self.contacts]
-        if newcontacts:
-            if len(newcontacts) > 1:
-                newfriend = npr.sample(newcontacts)
-            else:
-                newfriend = newcontacts
-            # Based on relative social values and length of shortest path set probability for forming link with a
-            #  randomly sampled co-located unknown agent. social from 2-8 per agent, combined from 4-16. So combined -4
-            #  over 24 gives value between 0 and 0.5 plus the if minimum path greater than 6 nothing, else from m=2-6
-            #  then 1/(2m-2) gives 0.1-0.5 (m=1 or 0 means itself or already connected).
-            prob1 = (newfriend.end_node["social"]+self.social-4)/24
-            sp = intf.shortestpath(tx, self.id, newfriend.end_node["id"], 'Agent', 'Social')
-            if sp < 2:
-                prob2 = 0
-            elif sp > 6:
-                prob2 = 0
-            else:
-                prob2 = 1/(2*sp-2)
-            if npr.random(1) <= (prob1 + prob2):
+        super(Patient , self).talk(tx)
+        if self.colocated:
+            newcontacts = [nc for nc in self.colocated if nc not in self.contacts]
+            if newcontacts:
+                if len(newcontacts) > 1:
+                    newfriend = npr.sample(newcontacts)
+                else:
+                    newfriend = newcontacts
+                # Based on relative social values and length of shortest path set probability for forming link with a
+                #  randomly sampled co-located unknown agent. social from 2-8 per agent, combined from 4-16. So combined -4
+                #  over 24 gives value between 0 and 0.5 plus the if minimum path greater than 6 nothing, else from m=2-6
+                #  then 1/(2m-2) gives 0.1-0.5 (m=1 or 0 means itself or already connected).
+                prob1 = (newfriend.end_node["social"]+self.social-4)/24
+                sp = intf.shortestpath(tx, self.id, newfriend.end_node["id"], 'Agent', 'Social')
+                if sp < 2:
+                    prob2 = 0
+                elif sp > 6:
+                    prob2 = 0
+                else:
+                    prob2 = 1/(2*sp-2)
+                if npr.random(1) <= (prob1 + prob2):
                 # form friend link
-                intf.createedge(self.id, newfriend.end_node["id"], 'Agent', 'Agent', 'SOCIAL:FRIEND', 'created: '
-                                + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: False')
-            self.contacts = newfriend
-        else:
-            self.contacts = None
+                    intf.createedge(self.id, newfriend.end_node["id"], 'Agent', 'Agent', 'SOCIAL:FRIEND', 'created: '
+                                  + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: False')
+                    self.contacts = newfriend
+                else: self.contacts = None
+            else:
+                self.contacts = None
+        else: self.contacts = None
 
-    def listen(self, tx, intf):
+    def listen(self, tx):
         """
         If the agent has a new social link check if the new friend has a link to a carer if they do for a random carer
         they form a link with a .5 chance.
 
         :param tx: neo4j write transaction
-        :param intf: Interface for database calls
 
         :return: None
         """
-        super(Patient, self).listen(tx, intf)
+        super(Patient, self).listen(tx)
         if self.contacts:
             carers = intf.agentcontacts(tx, self.contacts.end_node["id"], "Agent", "Carer")
             carers = [carer for carer in carers if carer["carer"]]
@@ -401,18 +402,17 @@ class Patient(MobileAgent, CommunicativeAgent):
                 intf.createedge(self.id, carer.end_node["id"], 'Patient', 'Carer', 'SOCIAL:FRIEND', 'created: '
                                 + intf.gettime() + ', usage: ' + intf.gettime() + ', carer: True')
 
-    def react(self, tx, intf):
+    def react(self, tx):
         """
         If the agent now has more social bonds than they can manage we drop new non carer friends then those not used
         recently and finally reduce the carers from most recent.
 
         :param tx: neo4j write transaction
-        :param intf: Interface for database transactions
 
         :return: None
         """
-        super(Patient, self).react(tx, intf)
-        contacts = intf.agentcontacts(tx, self.id, "Agent")
+        super(Patient, self).react(tx)
+        self.contacts = intf.agentcontacts(tx, self.id, "Agent")
         carers = self.contacts + intf.agentcontacts(tx, self.id, "Agent", "Carer")
         if len(self.contacts) > self.social:
             while len(carers) > self.social:
@@ -460,18 +460,17 @@ class FallAgent(MobileAgent):
         self.wellbeing = None
         self.referral = None
 
-    def generator(self, tx, intf, params):
+    def generator(self, tx, params):
         """
         Generates Fall Agents and inserts them into the network at the home node.
 
         :param self: Agent
         :param tx: neo4j database transaction with write permission
-        :param intf: An Interface() object to simplify interactions with the database
         :param params: [mobility, confidence, energy] these are the means for the normal distributions sampled to set parameters
 
         :return: None
         """
-        super(FallAgent, self).generator(tx, intf, params)
+        super(FallAgent, self).generator(tx, params)
         # generate a random set of parameters based on a distribution with mean set by params
         [mobility, confidence, energy] = params
         self.mobility = npr.normal(mobility, 0.05)  # draw from normal distribution centred on given value
@@ -500,7 +499,7 @@ class FallAgent(MobileAgent):
         else:
             return num
 
-    def perception(self, tx, intf, perc):
+    def perception(self, tx, perc):
         """
         Fall agent perception function. Filters based on agent having sufficient energy for edge and end node.
 
@@ -510,7 +509,7 @@ class FallAgent(MobileAgent):
 
         :return: None
         """
-        super(FallAgent, self).perception(tx, intf, perc)
+        super(FallAgent, self).perception(tx, perc)
         if type(self.view) == list:
             edges = self.view
         else:
@@ -534,19 +533,18 @@ class FallAgent(MobileAgent):
             valid_edges = self.view
         self.view = valid_edges
 
-    def choose(self, tx, intf, perc):
+    def choose(self, tx, perc):
         """
         Agents conscious choice from possible edges. This is based on the effort of the agent calculated from the
         combination of agent and edge values. If the agent has the effort for multiple choices the worth of the edge is
         used as a deciding factor.
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for calls to database
         :param perc: perception from node perception function.
 
         :return: single edge as final choice
         """
-        super(FallAgent, self).choose(tx, intf, perc)
+        super(FallAgent, self).choose(tx, perc)
         # filter out options where the agent does not reach the effort threshold
         options = []
         self.confidence = intf.getnodevalue(tx, self.id, "conf", "Agent")
@@ -578,18 +576,17 @@ class FallAgent(MobileAgent):
                     choice = edge
         return choice
 
-    def learn(self, tx, intf, choice):
+    def learn(self, tx, choice):
         """
         Agent is changed by node and can change node and edge it arrived by. This can include changes to decision
          making parameters.
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for database interaction
         :param choice: Chosen edge for move
 
         :return: None
         """
-        super(FallAgent, self).learn(tx, intf, choice)
+        super(FallAgent, self).learn(tx, choice)
         # modify mob, conf, res and energy based on new node
         if self.fall and self.fall != "Mild":
             if self.wellbeing != "Fallen":
@@ -649,7 +646,7 @@ class FallAgent(MobileAgent):
             self.log = self.log + ", (Discharged, " + str(clock) + ")"
         intf.updateagent(tx, self.id, "log", str(self.log))
 
-    def payment(self, tx, intf):
+    def payment(self, tx):
         """
         Modifies chosen edge and agent. These include mobility, confidence and energy modifications.
 
@@ -658,7 +655,7 @@ class FallAgent(MobileAgent):
 
         :return: None
         """
-        super(FallAgent, self).payment(tx, intf)
+        super(FallAgent, self).payment(tx)
         # Deduct energy used on edge
         if "energy" in self.choice.keys():
             self.current_energy = npr.normal(self.choice["energy"], 0.05) + self.current_energy
@@ -692,7 +689,7 @@ class FallAgent(MobileAgent):
             self.confidence = self.positive(npr.normal(self.choice["modc"], 0.05) + self.confidence)
             intf.updateagent(tx, self.id, "conf", self.confidence)
 
-    def move(self, tx, intf, perc):
+    def move(self, tx, perc):
         """
         Runs complete agent movement algorithm.
 
@@ -702,14 +699,13 @@ class FallAgent(MobileAgent):
 
         :return: Node Agent has moved to
         """
-        super(FallAgent, self).move(tx, intf, perc)
+        super(FallAgent, self).move(tx, perc)
 
-    def logging(self, tx, intf, entry):
+    def logging(self, tx, entry):
         """
         Utility function for adding information to the agents log of its activities
 
         :param tx: neo4j database write transaction
-        :param intf: Interface for database calls
         :param entry: String to be added to the log
 
         :return: None

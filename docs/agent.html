@@ -4,7 +4,7 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Agents &#8212; FallModel 0.0.1 documentation</title>
+    <title>Agents &#8212; FallModel 1.0.1a documentation</title>
     <link rel="stylesheet" href="_static/classic.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
     
@@ -35,7 +35,7 @@
         <li class="right" >
           <a href="network.html" title="Network"
              accesskey="P">previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">FallModel 0.0.1 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">FallModel 1.0.1a documentation</a> &#187;</li> 
       </ul>
     </div>  
 
@@ -46,37 +46,53 @@
             
   <div class="section" id="agents">
 <h1>Agents<a class="headerlink" href="#agents" title="Permalink to this headline">¶</a></h1>
-<p>Agents act using 5 step algorithm established in SPmodelling’s agents. Each stage is broken down below. The Agent recieves
+<p>Agents come in two forms:</p>
+<p>Physical Agents act using a 5 step algorithm established in SPmodelling’s agents. Each stage is broken down below. The Agent recieves
 an already filtered perception from the node which is fed into step 1.</p>
-<div class="section" id="fall-agent-algorithm">
-<h2>Fall Agent Algorithm<a class="headerlink" href="#fall-agent-algorithm" title="Permalink to this headline">¶</a></h2>
+<p>Social Agents act using a 5 step algorithm as well, see below.</p>
+<div class="section" id="patients-physical-agent-algorithm">
+<h2>Patients Physical Agent Algorithm<a class="headerlink" href="#patients-physical-agent-algorithm" title="Permalink to this headline">¶</a></h2>
 <ol class="arabic simple">
 <li><dl class="simple">
 <dt>Perception</dt><dd><ul class="simple">
-<li><p>Remove Edges where Agent.Energy &lt; Edge.Energy + Edge.End_Node.Energy</p></li>
+<li><p>Remove Edges where Agent.Energy &lt; Edge.End_Node.Energy</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
 <dt>Choose</dt><dd><ul class="simple">
-<li><p>Remove Edges where Node.Effort &gt; Edge.Mobility*(Agent.Mobility + Agent.Confidence*Agent.Mobility_Resources) + Edge.Confidence(Agent.Confidence + Agent.Mobility*Agent.Confidence_Resources)</p></li>
-<li><p>Select Edge with max(Edge.worth)</p></li>
+<li><p>Remove Edges where Edge.Mood &gt; Agent.Mood</p></li>
+<li><dl class="simple">
+<dt>Select from remaining edges using a weighted sampling, we generate the weights as follows:</dt><dd><ul>
+<li><p>For each edge we get the agent.inclination values corresponding to the edge.type</p></li>
+<li><p>We take the list of agent.inclination values and normalize them to give the sample weights</p></li>
 </ul>
 </dd>
 </dl>
 </li>
-<li><dl class="simple">
-<dt>Move</dt><dd><ul class="simple">
-<li><p>Delete Agents existing location edge</p></li>
-<li><p>Create new edge from agent to Edge.End_Node for the selected Edge</p></li>
 </ul>
 </dd>
 </dl>
 </li>
 <li><dl class="simple">
 <dt>Payment</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>If Agent.Energy &gt; Edge.Energy + Edge.End_node.Energy:</dt><dd><ul>
 <li><p>Deduct Edge.Energy from Agent.Energy</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Else:</dt><dd><ul>
+<li><p>Search for carers</p></li>
+<li><p>If a carer has sufficient energy take it</p></li>
+<li><p>Else fail to move</p></li>
+</ul>
+</dd>
+</dl>
+</li>
 <li><dl class="simple">
 <dt>Add Edge.Mobility_Modifier to Agent.Mobility</dt><dd><ul>
 <li><dl class="simple">
@@ -92,7 +108,15 @@ an already filtered perception from the node which is fed into step 1.</p>
 </dd>
 </dl>
 </li>
-<li><p>Add Edge.Confidence_Modifier to Agent.Confidence</p></li>
+<li><p>Add Edge.Mood_Modifier to Agent.Mood</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Move</dt><dd><ul class="simple">
+<li><p>Delete Agents existing location edge</p></li>
+<li><p>Create new edge from agent to Edge.End_Node for the selected Edge</p></li>
 </ul>
 </dd>
 </dl>
@@ -115,9 +139,51 @@ an already filtered perception from the node which is fed into step 1.</p>
 </dd>
 </dl>
 </li>
-<li><p>Add Edge.End_Node.Confidence to Agent.Confidence</p></li>
-<li><p>Add Edge.End_Node.Confidence_Resources to Agent.Confidence_Resources</p></li>
-<li><p>Add Edge.End_Node.Mobility_Resources to Agent.Mobility_Resources</p></li>
+<li><p>Add Edge.End_Node.Mood to Agent.Mood</p></li>
+<li><p>Add Edge.End_Node.Energy to Agent.Energy</p></li>
+<li><dl class="simple">
+<dt>If new Agent.Energy &gt; Agent.Energy before move:</dt><dd><p>Increment Agent.Inclination.Edge.type</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Else if new Agent.Energy &lt; Agent.Energy before move:</dt><dd><p>Decrement Agent.Inclination.Edge.type</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If Agent.Energy &gt; 0.8:</dt><dd><p>Increment Agent.Inclination.social</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Else if Agent.Energy &lt; 0.2:</dt><dd><p>Increment Agent.Inclination.inactivity</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If Agent.Mood &gt; 0.8:</dt><dd><p>Increment Agent.Inclination.social
+Decrement Agent.Inclination.inactivity</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Else if Agent.Mood &lt; 0.2:</dt><dd><p>Decrement Agent.Inclination.social
+Increment Agent.Inclination.inactivity</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If Agent.Mobility &lt; 0.4:</dt><dd><p>Increment Agent.Inclination.medical
+Increment Agent.Inclination.inactivity</p>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Else if Agent.Mobility &gt; 0.8:</dt><dd><p>Decrement Agent.Inclination.inactivity</p>
+</dd>
+</dl>
+</li>
 <li><dl class="simple">
 <dt>If Edge.End_Node is Care node:</dt><dd><p>Log Agent entering Care</p>
 </dd>
@@ -150,23 +216,97 @@ an already filtered perception from the node which is fed into step 1.</p>
 </li>
 </ol>
 </div>
-<div class="section" id="module-Fall_agent">
-<span id="agent-code"></span><h2>Agent Code<a class="headerlink" href="#module-Fall_agent" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="patient-social-agent-algorithm">
+<h2>Patient Social Agent Algorithm<a class="headerlink" href="#patient-social-agent-algorithm" title="Permalink to this headline">¶</a></h2>
+<ol class="arabic simple">
+<li><dl class="simple">
+<dt>Look</dt><dd><ul class="simple">
+<li><p>Agent checks its local physical environment for co-located agents</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Update</dt><dd><ul class="simple">
+<li><p>Compares co-located agents and social contacts and updates last usage value for co-located contacts</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Talk</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>Randomly check to see if a new social contact is forms with a co-located agent based on uniform random number being lower than the following equation based on m the length of the shortest undirected path between <span class="math notranslate nohighlight">\(Agent_a\)</span> and <span class="math notranslate nohighlight">\(Agent_b\)</span></dt><dd><ul>
+<li><p>where <span class="math notranslate nohighlight">\(m &lt;= 6\)</span>: <span class="math notranslate nohighlight">\((Agent_a.social + Agent_b.social - 4)/24 + 1/(2m-2)\)</span></p></li>
+<li><p>where <span class="math notranslate nohighlight">\(m &gt; 6\)</span>: <span class="math notranslate nohighlight">\((Agent_a.social + Agent_b.social -4)/24\)</span></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Listen</dt><dd><ul class="simple">
+<li><p>If they have a new social contact who has a contact to a carer there is a .5 chance that <span class="math notranslate nohighlight">\(Agent_a\)</span> also forms a contact with that carer</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>React</dt><dd><ul class="simple">
+<li><dl class="simple">
+<dt>Checks is agent has too many bonds, if it does:</dt><dd><ul>
+<li><dl class="simple">
+<dt>If the length of <span class="math notranslate nohighlight">\(Agent_a\)</span>’s list of carer contacts is greater than <span class="math notranslate nohighlight">\(Agent_a.social\)</span>:</dt><dd><ul>
+<li><p>Drop all social contact with other agents</p></li>
+<li><p>Drop most recently met carers until length is equal to <span class="math notranslate nohighlight">\(Agent_a.social\)</span></p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>If the length of <span class="math notranslate nohighlight">\(Agent_a\)</span>’s list of carer contact is equal to <span class="math notranslate nohighlight">\(Agent_a.social\)</span></dt><dd><ul>
+<li><p>Drop all social contact with other agents</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt>Else</dt><dd><ul>
+<li><p>Drop social contacts with other agents created in the last 5 timesteps, starting with the most recent</p></li>
+<li><p>Drop social contacts with the oldest last usage</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ul>
+</dd>
+</dl>
+</li>
+</ol>
+</div>
+<div class="section" id="agent-code">
+<h2>Agent Code<a class="headerlink" href="#agent-code" title="Permalink to this headline">¶</a></h2>
 <dl class="py class">
-<dt id="Fall_agent.Agent">
-<em class="property">class </em><code class="sig-prename descclassname">Fall_agent.</code><code class="sig-name descname">Agent</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">agent_id</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent" title="Permalink to this definition">¶</a></dt>
-<dd><p>Agent for modelling patients with declining mobility</p>
+<dt id="Fall_agent.Patient">
+<em class="property">class </em><code class="sig-prename descclassname">Fall_agent.</code><code class="sig-name descname">Patient</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">agent_id</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient" title="Permalink to this definition">¶</a></dt>
+<dd><p>Agent for modelling the physical movement of patients with declining mobility</p>
 <dl class="py method">
-<dt id="Fall_agent.Agent.choose">
-<code class="sig-name descname">choose</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.choose" title="Permalink to this definition">¶</a></dt>
-<dd><p>Agents conscious choice from possible edges. This is based on the effort of the agent calculated from the
-combination of agent and edge values. If the agent has the effort for multiple choices the worth of the edge is
-used as a deciding factor.</p>
+<dt id="Fall_agent.Patient.choose">
+<code class="sig-name descname">choose</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.choose" title="Permalink to this definition">¶</a></dt>
+<dd><p>Patients conscious choice from possible edges. This is based on the patients mood exceeds the current threshold
+for that edge. If the agent has the mood for multiple choices the final choice is made as a weighted sampling of
+all possible choices with weights based on the Patients inclination applied to the types of edges.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
-<li><p><strong>intf</strong> – Interface for calls to database</p></li>
 <li><p><strong>perc</strong> – perception from node perception function.</p></li>
 </ul>
 </dd>
@@ -177,30 +317,26 @@ used as a deciding factor.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_agent.Agent.generator">
-<code class="sig-name descname">generator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">params</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.generator" title="Permalink to this definition">¶</a></dt>
+<dt id="Fall_agent.Patient.generator">
+<code class="sig-name descname">generator</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">params</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.generator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Generates Fall Agents and inserts them into the network at the home node.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>self</strong> – Agent</p></li>
 <li><p><strong>tx</strong> – neo4j database transaction with write permission</p></li>
-<li><p><strong>intf</strong> – An Interface() object to simplify interactions with the database</p></li>
-<li><p><strong>params</strong> – [mobility, confidence, energy] these are the means for the normal distributions sampled to set</p></li>
+<li><p><strong>params</strong> – [mobility, mood, energy, inclination] these are the means for the normal distributions sampled to set parameters</p></li>
 </ul>
 </dd>
-</dl>
-<p>parameters</p>
-<dl class="field-list simple">
-<dt class="field-odd">Returns</dt>
-<dd class="field-odd"><p>None</p>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_agent.Agent.learn">
-<code class="sig-name descname">learn</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">choice</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.learn" title="Permalink to this definition">¶</a></dt>
+<dt id="Fall_agent.Patient.learn">
+<code class="sig-name descname">learn</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">choice</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.learn" title="Permalink to this definition">¶</a></dt>
 <dd><dl class="simple">
 <dt>Agent is changed by node and can change node and edge it arrived by. This can include changes to decision</dt><dd><p>making parameters.</p>
 </dd>
@@ -209,7 +345,6 @@ used as a deciding factor.</p>
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
-<li><p><strong>intf</strong> – Interface for database interaction</p></li>
 <li><p><strong>choice</strong> – Chosen edge for move</p></li>
 </ul>
 </dd>
@@ -220,14 +355,28 @@ used as a deciding factor.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_agent.Agent.logging">
-<code class="sig-name descname">logging</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">entry</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.logging" title="Permalink to this definition">¶</a></dt>
+<dt id="Fall_agent.Patient.listen">
+<code class="sig-name descname">listen</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.listen" title="Permalink to this definition">¶</a></dt>
+<dd><p>If the agent has a new social link check if the new friend has a link to a carer if they do for a random carer
+they form a link with a .5 chance.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j write transaction</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.Patient.logging">
+<code class="sig-name descname">logging</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">entry</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.logging" title="Permalink to this definition">¶</a></dt>
 <dd><p>Utility function for adding information to the agents log of its activities</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
-<li><p><strong>intf</strong> – Interface for database calls</p></li>
 <li><p><strong>entry</strong> – String to be added to the log</p></li>
 </ul>
 </dd>
@@ -238,14 +387,27 @@ used as a deciding factor.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_agent.Agent.move">
-<code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.move" title="Permalink to this definition">¶</a></dt>
+<dt id="Fall_agent.Patient.look">
+<code class="sig-name descname">look</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.look" title="Permalink to this definition">¶</a></dt>
+<dd><p>If not at home, find co-located agents</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j database write transaction</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.Patient.move">
+<code class="sig-name descname">move</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.move" title="Permalink to this definition">¶</a></dt>
 <dd><p>Runs complete agent movement algorithm.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j database write transaction</p></li>
-<li><p><strong>intf</strong> – Interface for database calls</p></li>
 <li><p><strong>perc</strong> – perception provided by the node the agent is currently located at</p></li>
 </ul>
 </dd>
@@ -256,15 +418,12 @@ used as a deciding factor.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_agent.Agent.payment">
-<code class="sig-name descname">payment</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.payment" title="Permalink to this definition">¶</a></dt>
+<dt id="Fall_agent.Patient.payment">
+<code class="sig-name descname">payment</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.payment" title="Permalink to this definition">¶</a></dt>
 <dd><p>Modifies chosen edge and agent. These include mobility, confidence and energy modifications.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
-<dd class="field-odd"><ul class="simple">
-<li><p><strong>tx</strong> – neo4j database write transaction</p></li>
-<li><p><strong>intf</strong> – Interface for databse calls</p></li>
-</ul>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j database write transaction</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>None</p>
@@ -273,14 +432,13 @@ used as a deciding factor.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_agent.Agent.perception">
-<code class="sig-name descname">perception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">intf</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.perception" title="Permalink to this definition">¶</a></dt>
-<dd><p>Fall agent perception function. Filters based on agent having sufficient energy for edge and end node.</p>
+<dt id="Fall_agent.Patient.perception">
+<code class="sig-name descname">perception</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em>, <em class="sig-param"><span class="n">perc</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.perception" title="Permalink to this definition">¶</a></dt>
+<dd><p>Patient perception function. Filters based on agent having sufficient energy for edge and end node.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
 <dd class="field-odd"><ul class="simple">
 <li><p><strong>tx</strong> – neo4j write transaction</p></li>
-<li><p><strong>intf</strong> – Interface instance to simplify database calls</p></li>
 <li><p><strong>perc</strong> – perception recieved from the node</p></li>
 </ul>
 </dd>
@@ -291,8 +449,8 @@ used as a deciding factor.</p>
 </dd></dl>
 
 <dl class="py method">
-<dt id="Fall_agent.Agent.positive">
-<em class="property">static </em><code class="sig-name descname">positive</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">num</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Agent.positive" title="Permalink to this definition">¶</a></dt>
+<dt id="Fall_agent.Patient.positive">
+<em class="property">static </em><code class="sig-name descname">positive</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">num</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.positive" title="Permalink to this definition">¶</a></dt>
 <dd><p>basic function to floor a number at zero</p>
 <dl class="field-list simple">
 <dt class="field-odd">Parameters</dt>
@@ -300,6 +458,50 @@ used as a deciding factor.</p>
 </dd>
 <dt class="field-even">Returns</dt>
 <dd class="field-even"><p>real number</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.Patient.react">
+<code class="sig-name descname">react</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.react" title="Permalink to this definition">¶</a></dt>
+<dd><p>If the agent now has more social bonds than they can manage we drop new non carer friends then those not used
+recently and finally reduce the carers from most recent.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j write transaction</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.Patient.talk">
+<code class="sig-name descname">talk</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.talk" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determine if agent forms a new social link with random co-located agent based on their social values and
+shortest social path</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j write transaction</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt id="Fall_agent.Patient.update">
+<code class="sig-name descname">update</code><span class="sig-paren">(</span><em class="sig-param"><span class="n">tx</span></em><span class="sig-paren">)</span><a class="headerlink" href="#Fall_agent.Patient.update" title="Permalink to this definition">¶</a></dt>
+<dd><p>Check agent contacts compare list with co-located agents and update co-located contacts with new last usage</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>tx</strong> – neo4j database write transaction</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p>None</p>
 </dd>
 </dl>
 </dd></dl>
@@ -352,8 +554,9 @@ used as a deciding factor.</p>
   <h3><a href="index.html">Table of Contents</a></h3>
   <ul>
 <li><a class="reference internal" href="#">Agents</a><ul>
-<li><a class="reference internal" href="#fall-agent-algorithm">Fall Agent Algorithm</a></li>
-<li><a class="reference internal" href="#module-Fall_agent">Agent Code</a></li>
+<li><a class="reference internal" href="#patients-physical-agent-algorithm">Patients Physical Agent Algorithm</a></li>
+<li><a class="reference internal" href="#patient-social-agent-algorithm">Patient Social Agent Algorithm</a></li>
+<li><a class="reference internal" href="#agent-code">Agent Code</a></li>
 <li><a class="reference internal" href="#module-Fall_Population">Population</a></li>
 </ul>
 </li>
@@ -401,7 +604,7 @@ used as a deciding factor.</p>
         <li class="right" >
           <a href="network.html" title="Network"
              >previous</a> |</li>
-        <li class="nav-item nav-item-0"><a href="index.html">FallModel 0.0.1 documentation</a> &#187;</li> 
+        <li class="nav-item nav-item-0"><a href="index.html">FallModel 1.0.1a documentation</a> &#187;</li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">
