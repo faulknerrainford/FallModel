@@ -22,7 +22,7 @@ copyright = '2020, Penny Faulkner Rainford'
 author = 'Penny Faulkner Rainford'
 
 # The full version, including alpha/beta/rc tags
-release = '1.0.1a'
+release = '1.0.2a'
 
 
 # -- General configuration ---------------------------------------------------

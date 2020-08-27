@@ -1,4 +1,4 @@
-from FallModel.Fall_agent import FallAgent, Patient
+from FallModel.Fall_agent import FallAgent, Patient, Carer
 import SPmodelling.Interface as intf
 from SPmodelling.Reset import Reset as SPreset
 import numpy.random as npr
@@ -28,13 +28,18 @@ class Reset(SPreset):
 
         :return: None
         """
-        tx.run("CREATE (a:Node {name:'Hos', energy:0.2, modm:-0.1, modmood:-0.05})")
-        tx.run("CREATE (a:Node {name:'Home', energy:0.3})")
-        tx.run("CREATE (a:Node {name:'Social', energy:-0.4, modm:0.05, modmood:0.2})")
-        tx.run("CREATE (a:Node {name:'Intervention', energy:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
+        tx.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modmood:-0.05})")
+        tx.run("CREATE (a:Node {name:'Home', resources:0.3})")
+        if specification.activities:
+            tx.run("CREATE (a:Node {name:'SocialLunch', resources:-0.4, modm:0.025, modmood:0.2})")
+            tx.run("CREATE (a:Node {name:'SocialWalk', resources:-0.5, modm:0.075, modmood:0.2})")
+            tx.run("CREATE (a:Node {name:'SocialCraft', resources:-0.45, modm:0.05, modmood:0.2})")
+        else:
+            tx.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modmood:0.2})")
+        tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
                c=specification.Intervention_cap)
         if specification.Open_Intervention:
-            tx.run("CREATE (a:Node {name:'InterventionOpen', energy:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
+            tx.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
                    c=specification.Open_Intervention_cap)
         tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0})")
         tx.run("CREATE (a:Node {name:'GP'})")
@@ -52,16 +57,13 @@ class Reset(SPreset):
         """
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Hos' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {mood:0, energy:-0.1, type:'inactive'}]->(b)")
+               "CREATE (a)-[r:REACHES {mood:0, resources:-0.1, type:'inactive'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {mood:0, energy: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+               "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Intervention' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {mood:0, energy: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Social' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {mood:0, energy: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+               "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='GP' AND b.name='Hos' "
                "CREATE (a)-[r:REACHES {mood:0, type:'fall'}]->(b)")
@@ -69,26 +71,17 @@ class Reset(SPreset):
                "WHERE a.name='GP' AND b.name='Home' "
                "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
         tx.run("MATCH (a), (b) "
-               "WHERE a.name='Home' AND b.name='Social' "
-               "CREATE (a)-[r:REACHES {mood:0.2, type:'social'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Social' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
-        tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Intervention' "
-               "CREATE (a)-[r:REACHES {mood:0.1, allowed:'Fallen', ref:'True', type:'medical'}]->(b)")
+               "CREATE (a)-[r:REACHES {resources:-0.2, mood:0.1, allowed:'Fallen', ref:'True', type:'medical'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Intervention' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
+               "CREATE (a)-[r:REACHES {resources:-0.05, mood:0, type:'inactive'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Intervention' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {mood:0, energy: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Social' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {mood:0, energy: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
+               "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {mood:0, energy: -0.8, modm:-0.25, modc:-0.5, type:'fall'}]->(b)")
+               "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.5, type:'fall'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Care' "
                "CREATE (a)-[r:REACHES {mood:0}]->(b)")
@@ -98,26 +91,76 @@ class Reset(SPreset):
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Hos' AND b.name='Care' "
                "CREATE (a)-[r:REACHES {mood:0}]->(b)")
+        if specification.activities:
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='Home' AND b.name='SocialLunch' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialLunch' AND b.name='Home' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialLunch' AND b.name='Hos' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialLunch' AND b.name='GP' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='Home' AND b.name='SocialWalk' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.25, type:'social'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialWalk' AND b.name='Home' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialWalk' AND b.name='Hos' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialWalk' AND b.name='GP' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='Home' AND b.name='SocialCraft' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialCraft' AND b.name='Home' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialCraft' AND b.name='Hos' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='SocialCraft' AND b.name='GP' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+        else:
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='Home' AND b.name='Social' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='Social' AND b.name='Home' "
+                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='Social' AND b.name='Hos' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
+            tx.run("MATCH (a), (b) "
+                   "WHERE a.name='Social' AND b.name='GP' "
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
         if specification.Open_Intervention:
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='InterventionOpen' AND b.name='GP' "
-                   "CREATE (a)-[r:REACHES {mood:0, energy: -0.3, modm:-0.1, modc:-0.025, type:'fall'}]->(b)")
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, modc:-0.025, type:'fall'}]->(b)")
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='InterventionOpen' AND b.name='Hos' "
-                   "CREATE (a)-[r:REACHES {mood:0, energy: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
+                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='InterventionOpen' AND b.name='Home' "
-                   "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
+                   "CREATE (a)-[r:REACHES {resources:-0.2, mood:0, type:'inactive'}]->(b)")
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='Home' AND b.name='InterventionOpen' "
-                   "CREATE (a)-[r:REACHES {mood:0.2, allowed:{limits}, ref:'False', type:'medical'}]->(b)",
+                   "CREATE (a)-[r:REACHES {resources:-0.05, mood:0.2, allowed:{limits}, ref:'False', type:'medical'}]->(b)",
                    limits=specification.Open_Intervention_Limits)
 
     @staticmethod
     def generate_population(tx, ps):
         """
-        Generates the required number of agents and starts them at the Home node.
-        Builds social connections between agents.
+        Generates the required number of agents split between carers and patients and starts them at the Home node.
+        Builds social and care links between agents.
 
         :param tx: neo4j database write transaction
         :param ps: population size
@@ -125,27 +168,44 @@ class Reset(SPreset):
         :return: None
         """
         fa = Patient(None)
-        for j in range(ps//4):
-            tx.run("CREATE (a:Carer {id:{j_id}, energy:20})", j_id=j)
-        for i in range(ps):
+        cps = ps//4
+        pps = ps-cps
+        if specification.carers == "agents":
+            ca = Carer(None)
+            for i in range(cps):
+                ca.generator(tx, [2, 2, 4, [3, 0, 0, 1], 2, 8])
+        else:
+            for j in range(cps):
+                tx.run("CREATE (a:Carer {id:{j_id}, resources:20})", j_id=j)
+        for i in range(pps):
             fa.generator(tx, [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8])
             if npr.random(1) < 0.5:
                 if npr.random(1) < 0.5:
                     samplesize = 2
                 else:
                     samplesize = 1
-                newfriends = npr.choice(range(ps//4), size=samplesize, replace=False)
+                newfriends = npr.choice(range(cps), size=samplesize, replace=False)
                 for nf in newfriends:
-                    intf.createedge(tx, i, nf, 'Agent', 'Carer', 'SOCIAL', 'created: '
-                                    + str(intf.gettime(tx)) + ', usage: ' + str(intf.gettime(tx)) + ', carer: True')
-                    intf.createedge(tx, i, nf, 'Agent', 'Carer', 'FRIEND')
+                    if npr.random(1) < 0.8:
+                        agtype = '"family"'
+                    else:
+                        agtype = '"social"'
+                    intf.createedge(tx, i+cps, nf, 'Agent', 'Carer', 'SOCIAL', 'created: '
+                                    + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
+                                    + ', utilization: ' + str(intf.gettime(tx))
+                                    + ', type: ' + agtype)
         for i in range(ps):
             newfriends = npr.choice(range(ps), size=npr.choice(range(3)), replace=False)
             for nf in newfriends:
                 if not nf == i:
+                    if npr.random(1) < 0.5:
+                        agtype = '"family"'
+                    else:
+                        agtype = '"social"'
                     intf.createedge(tx, i, nf, 'Agent', 'Agent', 'SOCIAL', 'created: '
-                                    + str(intf.gettime(tx)) + ', usage: ' + str(intf.gettime(tx)) + ', carer: False')
-                    intf.createedge(tx, i, nf, 'Agent', 'Agent', 'FRIEND')
+                                    + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
+                                    + ', utilization: ' + str(intf.gettime(tx))
+                                    + ', type: ' + agtype)
 
 
 class ResetV0(SPreset):
@@ -170,13 +230,13 @@ class ResetV0(SPreset):
 
         :return: None
         """
-        tx.run("CREATE (a:Node {name:'Hos', energy:0.2, modm:-0.1, modc:-0.05})")
-        tx.run("CREATE (a:Node {name:'Home', energy:0.3})")
-        tx.run("CREATE (a:Node {name:'Social', energy:-0.4, modm:0.05, modc:0.2, modrc:0.2})")
-        tx.run("CREATE (a:Node {name:'Intervention', energy:-0.8, modm:0.3, modc:0.3, cap:{c}, load:0})",
+        tx.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modc:-0.05})")
+        tx.run("CREATE (a:Node {name:'Home', resources:0.3})")
+        tx.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modc:0.2, modrc:0.2})")
+        tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modc:0.3, cap:{c}, load:0})",
                c=specification.Intervention_cap)
         if specification.Open_Intervention:
-            tx.run("CREATE (a:Node {name:'InterventionOpen', energy:-0.8, modm:0.3, modc:0.3, cap:{c}, load:0})",
+            tx.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modc:0.3, cap:{c}, load:0})",
                    c=specification.Open_Intervention_cap)
         tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0})")
         tx.run("CREATE (a:Node {name:'GP'})")
@@ -194,18 +254,18 @@ class ResetV0(SPreset):
         """
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Hos' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {effort:0.01, mobility:1, confidence:1, energy:-0.1, worth:0.1}]->(b)")
+               "CREATE (a)-[r:REACHES {effort:0.01, mobility:1, confidence:1, resources:-0.1, worth:0.1}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, energy: -0.3, modm:-0.1, "
+               "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, resources: -0.3, modm:-0.1, "
                "modc:-0.025}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Intervention' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, energy: -0.3, modm:-0.1, "
+               "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, resources: -0.3, modm:-0.1, "
                "modc:-0.025}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Social' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, energy: -0.3, modm:-0.1, "
+               "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, resources: -0.3, modm:-0.1, "
                "modc:-0.025}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='GP' AND b.name='Hos' "
@@ -229,13 +289,13 @@ class ResetV0(SPreset):
         # Falls
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Intervention' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, energy: -0.8, modm:-0.25, modc:-0.35}]->(b)")
+               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, modc:-0.35}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Social' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, energy: -0.8, modm:-0.25, modc:-0.35}]->(b)")
+               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, modc:-0.35}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, energy: -0.8, modm:-0.25, modc:-0.5}]->(b)")
+               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, modc:-0.5}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Care' "
                "CREATE (a)-[r:REACHES {effort:0, worth:-1, mobility:1, confidence:1}]->(b)")
@@ -245,11 +305,11 @@ class ResetV0(SPreset):
         if specification.Open_Intervention:
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='InterventionOpen' AND b.name='GP' "
-                   "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, energy: -0.3, modm:-0.1, "
+                   "CREATE (a)-[r:REACHES {worth:-5, effort:0, mobility:1, confidence:1, resources: -0.3, modm:-0.1, "
                    "modc:-0.025}]->(b)")
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='InterventionOpen' AND b.name='Hos' "
-                   "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, energy: -0.8, modm:-0.25, "
+                   "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, "
                    "modc:-0.35}]->(b)")
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='InterventionOpen' AND b.name='Home' "

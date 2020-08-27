@@ -100,8 +100,8 @@ class FlowReaction(Balancer.FlowReaction):
     Fall specific implementation of a Balancer for adjusting network values. Applies the adjust capacity rule.
     """
 
-    def __init__(self, uri=None, author=None):
-        super(FlowReaction, self).__init__(uri, author)
+    def __init__(self):
+        super(FlowReaction, self).__init__()
         self.storage = []
 
     def applyrules(self, txl):

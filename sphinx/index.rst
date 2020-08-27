@@ -14,7 +14,12 @@ Model for Mobility and Falls in Agents with Declining Mobility
    domain
    reset
    network
+   ------
+   Agents
+   ------
    agent
+   patient
+   carer
    monitor
    version0
 
