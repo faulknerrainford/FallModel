@@ -11,6 +11,12 @@ specname = "socialV1Test"
 nodes = [Nodes.CareNode(), Nodes.HosNode(), Nodes.SocialNode(), Nodes.GPNode(), Nodes.InterventionNode(),
          Nodes.InterventionNode("InterventionOpen"), Nodes.HomeNode()]
 
+PatientClasses = None
+NodeClasses = {"Carers":Nodes.CareNode, "Hos":Nodes.HosNode, "Social":Nodes.SocialNode, "GP":Nodes.GPNode,
+               "Intervention":Nodes.InterventionNode, "Home":Nodes.HomeNode}
+ServiceClasses = None
+
+Carers = None
 Intervention_cap = 2
 Open_Intervention = True
 Open_Intervention_cap = 2

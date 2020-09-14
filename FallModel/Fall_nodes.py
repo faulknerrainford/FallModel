@@ -17,6 +17,11 @@ class FallNode(Node):
 
     def __init__(self, name, capacity=None, duration=None, queue=None):
         super(FallNode, self).__init__(name, capacity, duration, queue)
+        self.servicemodel = "alternate"
+
+    def available_services(self, tx):
+        services = super(FallNode, self).available_services(tx)
+        return [service for service in services if service["capacity"] > service["load"]]
 
     def agentsready(self, tx):
         """

@@ -2,6 +2,7 @@ from SPmodelling.Agent import MobileAgent, CommunicativeAgent
 import numpy.random as npr
 import SPmodelling.Interface as intf
 from neobolt.exceptions import TransientError
+import specification
 
 
 def positive(num):
@@ -401,8 +402,10 @@ class Carer(MobileAgent, CommunicativeAgent):
 
     def listen(self, tx):
         """
+        If carers are being used:
         If the agent has a new social link check if the new friend has a link to a carer if they do for a random carer
         they form a social link with a .5 chance.
+        Else nothing
 
         :param tx: neo4j write transaction
 
@@ -410,20 +413,21 @@ class Carer(MobileAgent, CommunicativeAgent):
         """
         super(Carer, self).listen(tx)
         if self.contacts and not isinstance(self.contacts, list):
-            carers = intf.agentcontacts(tx, self.contacts["id"], "Agent", "Carer")
-            if carers:
-                carer = carers[npr.choice(range(len(carers)))]
-                if npr.random(1) < 0.5:
-                    if (carer.end_node["id"] or carer.end_node["id"] == 0) and carer.end_node["id"] != self.id:
-                        carer_id = carer.end_node["id"]
-                    elif carer.end_node["id"] == self.id and not carer.start_node["id"]:
-                        carer_id = carer.end_node["id"]
-                    else:
-                        carer_id = carer.start_node["id"]
-                    intf.createedge(tx, self.id, carer_id, 'Carer', 'Carer', 'SOCIAL', 'created: '
-                                    + str(intf.gettime(tx)) + ', utilization: ' + str(intf.gettime(tx))
-                                    + ', colocation: ' + str(intf.gettime(tx))
-                                    + ', carer: True, type: "professional"')
+            if specification.carers:
+                carers = intf.agentcontacts(tx, self.contacts["id"], "Agent", "Carer")
+                if carers:
+                    carer = carers[npr.choice(range(len(carers)))]
+                    if npr.random(1) < 0.5:
+                        if (carer.end_node["id"] or carer.end_node["id"] == 0) and carer.end_node["id"] != self.id:
+                            carer_id = carer.end_node["id"]
+                        elif carer.end_node["id"] == self.id and not carer.start_node["id"]:
+                            carer_id = carer.end_node["id"]
+                        else:
+                            carer_id = carer.start_node["id"]
+                        intf.createedge(tx, self.id, carer_id, 'Carer', 'Carer', 'SOCIAL', 'created: '
+                                        + str(intf.gettime(tx)) + ', utilization: ' + str(intf.gettime(tx))
+                                        + ', colocation: ' + str(intf.gettime(tx))
+                                        + ', carer: True, type: "professional"')
 
     def react(self, tx):
         """
@@ -456,8 +460,8 @@ class Carer(MobileAgent, CommunicativeAgent):
                 if intf.gettime(tx) - contact['created'] < 5:
                     intf.deletecontact(tx, self.id, contact.end_node["id"], "Agent", "Agent")
                 self.contacts = intf.agentcontacts(tx, self.id, "Agent", "SOCIAL")
-            oldest_usage = 0
-            contact_drop = None
+        oldest_usage = 0
+        contact_drop = None
         while len(self.contacts) > self.social:
             for contact in self.contacts:
                 if intf.gettime(tx) - contact["utilization"] > oldest_usage:
@@ -531,7 +535,7 @@ class Patient(MobileAgent, CommunicativeAgent):
                        "inclination": self.inclination, "wellbeing": self.wellbeing,
                        "log": "'" + self.log + "'", "referral": self.referral, "social": self.social}, "name")
 
-    def perception(self, tx, perc):
+    def move_perception(self, tx, perc):
         """
         Patient perception function. Filters based on agent having sufficient resources for edge and end node.
 
@@ -562,7 +566,7 @@ class Patient(MobileAgent, CommunicativeAgent):
             valid_edges = self.view
         self.view = valid_edges
 
-    def choose(self, tx, perc):
+    def move_choose(self, tx, perc):
         """
         Patients conscious choice from possible edges. This is based on the patients mood exceeds the current threshold
         for that edge. If the agent has the mood for multiple choices the final choice is made as a weighted sampling of
@@ -619,7 +623,7 @@ class Patient(MobileAgent, CommunicativeAgent):
             choice = options[sample[0]]
         return choice
 
-    def learn(self, tx, choice):
+    def move_learn(self, tx, choice, service=None):
         """
         Agent is changed by node and can change node and edge it arrived by. This can include changes to decision
          making parameters.
@@ -638,45 +642,51 @@ class Patient(MobileAgent, CommunicativeAgent):
                 clock = tx.run("MATCH (a:Clock) "
                                "RETURN a.time").values()[0][0]
                 self.log = self.log + ", (Fallen, " + str(clock) + ")"
-        if "modm" in choice.end_node:
-            self.mobility = positive(npr.normal(choice.end_node["modm"], 0.05) + self.mobility)
-            intf.updateagent(tx, self.id, "mob", self.mobility)
-            # check for updates to wellbeing and log any changes
-            if self.mobility == 0:
-                if self.wellbeing != "Fallen":
-                    self.wellbeing = "Fallen"
-                    intf.updateagent(tx, self.id, "wellbeing", self.wellbeing)
-                    clock = tx.run("MATCH (a:Clock) "
-                                   "RETURN a.time").values()[0][0]
-                    self.log = self.log + ", (Fallen, " + str(clock) + ")"
-            elif self.mobility > 1:
-                if self.wellbeing != "Healthy":
-                    self.wellbeing = "Healthy"
-                    intf.updateagent(tx, self.id, "wellbeing", self.wellbeing)
-                    clock = tx.run("MATCH (a:Clock) "
-                                   "RETURN a.time").values()[0][0]
-                    self.log = self.log + ", (Healthy, " + str(clock) + ")"
-            elif self.mobility <= 1:
-                if self.wellbeing == "Healthy":
-                    self.wellbeing = "At risk"
-                    intf.updateagent(tx, self.id, "wellbeing", self.wellbeing)
-                    clock = tx.run("MATCH (a:Clock) "
-                                   "RETURN a.time").values()[0][0]
-                    self.log = self.log + ", (At risk, " + str(clock) + ")"
-        if "modmood" in choice.end_node:
-            self.mood = positive(npr.normal(choice.end_node["modmood"], 0.05) + self.mood)
-            intf.updateagent(tx, self.id, "mood", self.mood)
-        if "resources" in choice.end_node:
-            self.current_resources = npr.normal(choice.end_node["resources"], 0.05) + self.current_resources
-            resources_change = self.current_resources - self.resources
-            intf.updateagent(tx, self.id, "resources", self.current_resources)
-            edge_types = ["social", "fall", "medical", "inactive"]
-            for i in range(len(edge_types)):
-                if choice["type"] == edge_types[i]:
-                    if resources_change < 0:
-                        self.inclination[i] = self.inclination[i] + 1
-                    elif resources_change > 0:
-                        self.inclination[i] = positive(self.inclination[i] - 1)
+        # switch for type of node and service choice, call service function if service chosen
+        if service and not choice.end_node["servicemodel"] == "core":
+            serv_class = specification.ServiceClasses[service["name"]]
+            serv = serv_class(tx, service["name"])
+            serv.provide_service(tx, [self.id, "Agent", "id"])
+        if choice.end_node["servicemodel"] in ["core", "additional"] or not service:
+            if "modm" in choice.end_node:
+                self.mobility = positive(npr.normal(choice.end_node["modm"], 0.05) + self.mobility)
+                intf.updateagent(tx, self.id, "mob", self.mobility)
+                # check for updates to wellbeing and log any changes
+                if self.mobility == 0:
+                    if self.wellbeing != "Fallen":
+                        self.wellbeing = "Fallen"
+                        intf.updateagent(tx, self.id, "wellbeing", self.wellbeing)
+                        clock = tx.run("MATCH (a:Clock) "
+                                       "RETURN a.time").values()[0][0]
+                        self.log = self.log + ", (Fallen, " + str(clock) + ")"
+                elif self.mobility > 1:
+                    if self.wellbeing != "Healthy":
+                        self.wellbeing = "Healthy"
+                        intf.updateagent(tx, self.id, "wellbeing", self.wellbeing)
+                        clock = tx.run("MATCH (a:Clock) "
+                                       "RETURN a.time").values()[0][0]
+                        self.log = self.log + ", (Healthy, " + str(clock) + ")"
+                elif self.mobility <= 1:
+                    if self.wellbeing == "Healthy":
+                        self.wellbeing = "At risk"
+                        intf.updateagent(tx, self.id, "wellbeing", self.wellbeing)
+                        clock = tx.run("MATCH (a:Clock) "
+                                       "RETURN a.time").values()[0][0]
+                        self.log = self.log + ", (At risk, " + str(clock) + ")"
+            if "modmood" in choice.end_node:
+                self.mood = positive(npr.normal(choice.end_node["modmood"], 0.05) + self.mood)
+                intf.updateagent(tx, self.id, "mood", self.mood)
+            if "resources" in choice.end_node:
+                self.current_resources = npr.normal(choice.end_node["resources"], 0.05) + self.current_resources
+                resources_change = self.current_resources - self.resources
+                intf.updateagent(tx, self.id, "resources", self.current_resources)
+                edge_types = ["social", "fall", "medical", "inactive"]
+                for i in range(len(edge_types)):
+                    if choice["type"] == edge_types[i]:
+                        if resources_change < 0:
+                            self.inclination[i] = self.inclination[i] + 1
+                        elif resources_change > 0:
+                            self.inclination[i] = positive(self.inclination[i] - 1)
         # change to inclination based on mobility, resources and mood
         if self.current_resources > 0.8:
             self.inclination[0] = self.inclination[0] + 1
@@ -707,7 +717,7 @@ class Patient(MobileAgent, CommunicativeAgent):
             self.log = self.log + ", (Discharged, " + str(clock) + ")"
         intf.updateagent(tx, self.id, "log", str(self.log))
 
-    def payment(self, tx):
+    def move_payment(self, tx):
         """
         Modifies chosen edge and agent. These include mobility, confidence and resources modifications.
 
@@ -719,7 +729,7 @@ class Patient(MobileAgent, CommunicativeAgent):
         # Deduct resources used on edge
         if "resources" in self.choice.keys():
             if "resources" in self.choice.end_node.keys():
-                if self.choice["resources"] + self.choice.end_node["resources"] > self.current_resources:
+                if specification.carers and self.choice["resources"] + self.choice.end_node["resources"] > self.current_resources:
                     # Check for carers
                     carers = intf.agentcontacts(tx, self.id, "Agent", "Carer")
                     # Check for sufficient resources
@@ -738,6 +748,8 @@ class Patient(MobileAgent, CommunicativeAgent):
                                 break
                         else:
                             return False
+                elif self.choice["resources"] + self.choice.end_node["resources"] > self.current_resources:
+                    return False
             self.current_resources = npr.normal(self.choice["resources"], 0.05) + self.current_resources
             intf.updateagent(tx, self.id, "resources", self.current_resources)
         # mod variables based on edges
@@ -769,6 +781,19 @@ class Patient(MobileAgent, CommunicativeAgent):
             self.mood = positive(npr.normal(self.choice["modmood"], 0.05) + self.mood)
             intf.updateagent(tx, self.id, "mood", self.mood)
         return True
+
+    def move_services(self, tx):
+        services = super(Patient, self).move_services(tx)
+        if not services:
+            return None
+        elif "Intervention" in [serv["name"] for serv in services]:
+            if self.mobility < 0.5:
+                return [serv for serv in services if serv["name"] == "Intervention"][0]
+        elif "Care" in [serv["name"] for serv in services]:
+            if self.resources < 0.5:
+                return [serv for serv in services if serv["name"] == "Care"][0]
+        else:
+            return None
 
     def move(self, tx, perc):
         """
@@ -899,7 +924,7 @@ class Patient(MobileAgent, CommunicativeAgent):
         :return: None
         """
         super(Patient, self).listen(tx)
-        if self.contacts and not isinstance(self.contacts, list):
+        if specification.carers and self.contacts and not isinstance(self.contacts, list):
             carers = intf.agentcontacts(tx, self.contacts["id"], "Agent", "Carer")
             if carers:
                 carer = carers[npr.choice(range(len(carers)))]

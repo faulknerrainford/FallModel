@@ -28,21 +28,25 @@ class Reset(SPreset):
 
         :return: None
         """
-        tx.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modmood:-0.05})")
-        tx.run("CREATE (a:Node {name:'Home', resources:0.3})")
+        tx.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modmood:-0.05}, servicemodel:'alternative')")
+        tx.run("CREATE (a:Node {name:'Home', resources:0.3, servicemodel:'addative'})")
         if specification.activities:
-            tx.run("CREATE (a:Node {name:'SocialLunch', resources:-0.4, modm:0.025, modmood:0.2})")
-            tx.run("CREATE (a:Node {name:'SocialWalk', resources:-0.5, modm:0.075, modmood:0.2})")
-            tx.run("CREATE (a:Node {name:'SocialCraft', resources:-0.45, modm:0.05, modmood:0.2})")
+            tx.run("CREATE (a:Node {name:'SocialLunch', resources:-0.4, modm:0.025, modmood:0.2, "
+                   "servicemodel:'addative'})")
+            tx.run("CREATE (a:Node {name:'SocialWalk', resources:-0.5, modm:0.075, modmood:0.2, "
+                   "servicemodel:'addative'})")
+            tx.run("CREATE (a:Node {name:'SocialCraft', resources:-0.45, modm:0.05, modmood:0.2, "
+                   "servicemodel:'addative'})")
         else:
-            tx.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modmood:0.2})")
+            tx.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modmood:0.2, servicemodel:'addative'})")
         tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
                c=specification.Intervention_cap)
         if specification.Open_Intervention:
             tx.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
                    c=specification.Open_Intervention_cap)
-        tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0})")
-        tx.run("CREATE (a:Node {name:'GP'})")
+        tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0, "
+               "servicemodel:'addative'})")
+        tx.run("CREATE (a:Node {name:'GP', servicemodel:'alternative'})")
 
     @staticmethod
     def set_edges(tx):
@@ -174,9 +178,11 @@ class Reset(SPreset):
             ca = Carer(None)
             for i in range(cps):
                 ca.generator(tx, [2, 2, 4, [3, 0, 0, 1], 2, 8])
-        else:
+        elif specification.carers:
             for j in range(cps):
                 tx.run("CREATE (a:Carer {id:{j_id}, resources:20})", j_id=j)
+        if not specification.carers:
+            pps = ps
         for i in range(pps):
             fa.generator(tx, [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8])
             if npr.random(1) < 0.5:
@@ -184,13 +190,15 @@ class Reset(SPreset):
                     samplesize = 2
                 else:
                     samplesize = 1
+                if not specification.carers:
+                    cps = ps
                 newfriends = npr.choice(range(cps), size=samplesize, replace=False)
                 for nf in newfriends:
                     if npr.random(1) < 0.8:
                         agtype = '"family"'
                     else:
                         agtype = '"social"'
-                    intf.createedge(tx, i+cps, nf, 'Agent', 'Carer', 'SOCIAL', 'created: '
+                    intf.createedge(tx, i+cps, nf, 'Agent', 'Agent', 'SOCIAL', 'created: '
                                     + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
                                     + ', utilization: ' + str(intf.gettime(tx))
                                     + ', type: ' + agtype)
@@ -206,6 +214,24 @@ class Reset(SPreset):
                                     + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
                                     + ', utilization: ' + str(intf.gettime(tx))
                                     + ', type: ' + agtype)
+
+    @staticmethod
+    def set_service(tx):
+        """
+        Services to be added to the system
+
+        :param tx: Neo4j database write transaction
+
+        :return:None
+        """
+        tx.run("CREATE (a:Service {name:care, resources:0.5, capacity:5, load:0, date:0})")
+        tx.run("CREATE (a:Service {name:intervention, resources:-0.8, mobility:0.3, capacity:2, load:0, date:0})")
+        tx.run("MATCH (s:Service), (n:Node) "
+               "WHERE s.name='Care' AND n.name='Home' "
+               "CREATE (s)-[r:PROVIDE]->(n)")
+        tx.run("MATCH (s:Service), (n:Node) "
+               "WHERE s.name='Intervention' AND n.name='Hospital' "
+               "CREATE (s)-[r:PROVIDE]->(n)")
 
 
 class ResetV0(SPreset):
