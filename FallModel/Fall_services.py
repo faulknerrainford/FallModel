@@ -34,13 +34,13 @@ class Intervention(SPmodelling.Service):
     @staticmethod
     def provide_service(self, tx, agent):
         [ag_id, ag_label, ag_uid] = agent
-        resources = intf.getnodevalue(tx, ag_id, "resources", ag_label, ag_uid)
-        mobility = intf.getnodevalue(tx, ag_id, "mob", ag_label, ag_uid)
+        resources = intf.get_node_value(tx, [ag_id, ag_label, ag_uid], "resources")
+        mobility = intf.getnodevalue(tx, [ag_id,ag_label, ag_uid], "mob")
         # add resources to agent
-        intf.updateagent(tx, ag_id, "resources", resources+self.resources)
-        intf.updateagent(tx, ag_id, "mob", mobility+self.mobility)
+        intf.update_agent(tx, [ag_id, ag_label, ag_uid], "resources", resources+self.resources)
+        intf.update_agent(tx, [ag_id, ag_label, ag_uid], "mob", mobility+self.mobility)
         # check for day end and reset capacity
         if intf.gettime(tx) != self.date:
-            intf.updatenode(tx, self.name, "date", intf.gettime(tx), "name", "Serivce")
-            intf.updatenode(tx, self.name, "load", 0, "name", "Serivce")
+            intf.update_node(tx, [self.name, "Service", "name"], "date", intf.get_time(tx))
+            intf.update_node(tx, [self.name, "Service", "name"], "load", 0)
 

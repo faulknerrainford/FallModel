@@ -1,7 +1,6 @@
 import specification
-from FallModel import Carer
-from FallModel import Patient
-from SPmodelling.Population import Population
+from FallModel.Fall_agent import Carer, Patient
+import SPmodelling.Population
 
 c_params = [2, 2, 4, [3, 0, 0, 1], 2, 8]
 p_params = [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8]
@@ -24,7 +23,7 @@ def countactiveagents(tx, count_type="Agent"):
     return total_agents - care_agents
 
 
-class FallPopulation(Population):
+class FallPopulation(SPmodelling.Population.Population):
 
     def __init__(self):
         super(FallPopulation, self).__init__()
@@ -35,7 +34,7 @@ class FallPopulation(Population):
         Confirms number of agents below designated population size. If population correct returns false, else returns
         total number of agents undersize and number of carers and patients missing
 
-        :param ses: neo4j database session
+        :param tx: neo4j database write transaction
         :param ps: int population size to be maintained
 
         :return: int number of agents below population size or false if population correct
@@ -52,7 +51,7 @@ class FallPopulation(Population):
         Replaces missing agents in system taking into account balancing the need to add new carers and patients as carers
         can become patients and also leave the system
 
-        :param ses: neo4j database session
+        :param tx: neo4j database session
         :param missing: [total_missing_patients, missing_carers, missing_patients]
 
         :return: None

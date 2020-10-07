@@ -1,15 +1,16 @@
 from FallModel.Fall_agent import FallAgent, Patient, Carer
 import SPmodelling.Interface as intf
-from SPmodelling.Reset import Reset as SPreset
+import SPmodelling.Reset
 import numpy.random as npr
 import specification
 
 
-class Reset(SPreset):
+class Reset(SPmodelling.Reset.Reset):
     """
     Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
     populates them with patients
     """
+
     def __init__(self):
         """
         Set the reset script name to SocialFallModel, see specification for individualised script names and reset
@@ -28,7 +29,7 @@ class Reset(SPreset):
 
         :return: None
         """
-        tx.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modmood:-0.05}, servicemodel:'alternative')")
+        tx.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modmood:-0.05, servicemodel:'alternative'})")
         tx.run("CREATE (a:Node {name:'Home', resources:0.3, servicemodel:'addative'})")
         if specification.activities:
             tx.run("CREATE (a:Node {name:'SocialLunch', resources:-0.4, modm:0.025, modmood:0.2, "
@@ -39,10 +40,10 @@ class Reset(SPreset):
                    "servicemodel:'addative'})")
         else:
             tx.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modmood:0.2, servicemodel:'addative'})")
-        tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
+        tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
                c=specification.Intervention_cap)
         if specification.Open_Intervention:
-            tx.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modmood:0.3, cap:{c}, load:0})",
+            tx.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
                    c=specification.Open_Intervention_cap)
         tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0, "
                "servicemodel:'addative'})")
@@ -157,7 +158,8 @@ class Reset(SPreset):
                    "CREATE (a)-[r:REACHES {resources:-0.2, mood:0, type:'inactive'}]->(b)")
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='Home' AND b.name='InterventionOpen' "
-                   "CREATE (a)-[r:REACHES {resources:-0.05, mood:0.2, allowed:{limits}, ref:'False', type:'medical'}]->(b)",
+                   "CREATE (a)-[r:REACHES {resources:-0.05, mood:0.2, allowed:$limits, ref:'False', "
+                   "type:'medical'}]->(b)",
                    limits=specification.Open_Intervention_Limits)
 
     @staticmethod
@@ -172,8 +174,8 @@ class Reset(SPreset):
         :return: None
         """
         fa = Patient(None)
-        cps = ps//4
-        pps = ps-cps
+        cps = ps // 4
+        pps = ps - cps
         if specification.carers == "agents":
             ca = Carer(None)
             for i in range(cps):
@@ -198,10 +200,10 @@ class Reset(SPreset):
                         agtype = '"family"'
                     else:
                         agtype = '"social"'
-                    intf.createedge(tx, i+cps, nf, 'Agent', 'Agent', 'SOCIAL', 'created: '
-                                    + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
-                                    + ', utilization: ' + str(intf.gettime(tx))
-                                    + ', type: ' + agtype)
+                    intf.create_edge(tx, [i + cps, 'Agent', 'id'], [nf, 'Agent', 'id'], 'SOCIAL', 'created: '
+                                     + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
+                                     + ', utilization: ' + str(intf.gettime(tx))
+                                     + ', type: ' + agtype)
         for i in range(ps):
             newfriends = npr.choice(range(ps), size=npr.choice(range(3)), replace=False)
             for nf in newfriends:
@@ -210,10 +212,10 @@ class Reset(SPreset):
                         agtype = '"family"'
                     else:
                         agtype = '"social"'
-                    intf.createedge(tx, i, nf, 'Agent', 'Agent', 'SOCIAL', 'created: '
-                                    + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
-                                    + ', utilization: ' + str(intf.gettime(tx))
-                                    + ', type: ' + agtype)
+                    intf.create_edge(tx, [i, 'Agent', 'id'], [nf, 'Agent', 'id'], 'SOCIAL', 'created: '
+                                     + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
+                                     + ', utilization: ' + str(intf.gettime(tx))
+                                     + ', type: ' + agtype)
 
     @staticmethod
     def set_service(tx):
@@ -234,11 +236,13 @@ class Reset(SPreset):
                "CREATE (s)-[r:PROVIDE]->(n)")
 
 
-class ResetV0(SPreset):
+# noinspection
+class ResetV0(SPmodelling.Reset.Reset):
     """
     Subclass of the SPmodelling Reset class. It is set to generate the networks currently used in Fall models and
     populates them with fall agents
     """
+
     def __init__(self):
         """
         Set the reset script name to Fall Model so, see specification for individualised script names and reset settings
@@ -315,13 +319,16 @@ class ResetV0(SPreset):
         # Falls
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Intervention' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, modc:-0.35}]->(b)")
+               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, "
+               "modc:-0.35}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Social' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, modc:-0.35}]->(b)")
+               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, "
+               "modc:-0.35}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, modc:-0.5}]->(b)")
+               "CREATE (a)-[r:REACHES {effort:0, mobility:1, confidence:1, resources: -0.8, modm:-0.25, "
+               "modc:-0.5}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Care' "
                "CREATE (a)-[r:REACHES {effort:0, worth:-1, mobility:1, confidence:1}]->(b)")

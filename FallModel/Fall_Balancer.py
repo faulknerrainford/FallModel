@@ -1,6 +1,6 @@
 from statistics import mean
 import logging
-from SPmodelling import Balancer
+from SPmodelling.Balancer import Balancer as Balancer
 import SPmodelling.Interface as intf
 import specification
 
@@ -34,7 +34,7 @@ def timesincedischarge(txl):
     :return: list of times in integer timesteps
     """
     times = []
-    agents = intf.getnodeagents(txl, "Intervention", "name")
+    agents = intf.get_node_agents(txl, ["Intervention", "Node", "name"], "name")
     for agent in agents:
         log = parselog(agent["log"])
         log.reverse()
@@ -72,30 +72,34 @@ def adjustcapasity(txl, history, dynamic=True):
     else:
         if history[-5] - history[-1] < -1 and history[-1] > 5:
             if dynamic:
-                if intf.getnodevalue(txl, "InterventionOpen", "cap", uid="name") > 0 and dynamic:
-                    intf.updatenode(txl, "Intervention", "cap",
-                                    intf.getnodevalue(txl, "Intervention", "cap", uid="name")
-                                    + 1, "name")
-                    intf.updatenode(txl, "InterventionOpen", "cap", intf.getnodevalue(txl, "InterventionOpen", "cap",
-                                                                                      uid="name") - 1, "name")
+                if intf.get_node_value(txl, ["InterventionOpen", "Node", "name"], "cap") > 0 and dynamic:
+                    intf.update_node(txl, ["Intervention", "Node", "name"], "cap",
+                                     intf.get_node_value(txl, ["Intervention", "Node", "name"], "cap")
+                                     + 1, "name")
+                    intf.update_node(txl, ["InterventionOpen", "Node", "name"], "cap",
+                                     intf.get_node_value(txl, "InterventionOpen", "cap",
+                                                         ) - 1, "name")
             else:
-                intf.updatenode(txl, "Intervention", "cap", intf.getnodevalue(txl, "Intervention", "cap", uid="name")
-                                + 1, "name")
+                intf.update_node(txl, ["Intervention", "Node", "name"], "cap",
+                                 intf.get_node_value(txl, ["Intervention", "Node", "name"], "cap")
+                                 + 1, "name")
             return []
         elif history[-5] - history[-1] > 0 and history[-1] < 5:
-            if intf.getnodevalue(txl, "Intervention", "cap", uid="name") > 0:
-                intf.updatenode(txl, "Intervention", "cap", intf.getnodevalue(txl, "Intervention", "cap", uid="name")
-                                - 1, "name")
+            if intf.get_node_value(txl, ["Intervention", "Node", "name"], "cap", uid="name") > 0:
+                intf.update_node(txl, ["Intervention", "Node", "name"], "cap",
+                                 intf.get_node_value(txl, ["Intervention", "Node", "name"], "cap", uid="name")
+                                 - 1, "name")
                 if dynamic:
-                    intf.updatenode(txl, "InterventionOpen", "cap", intf.getnodevalue(txl, "InterventionOpen", "cap",
-                                                                                      uid="name") + 1, "name")
+                    intf.update_node(txl, ["InterventionOpen", "Node", "name"], "cap",
+                                     intf.get_node_value(txl, ["InterventionOpen", "Node", "name"], "cap",
+                                                         ) + 1, "name")
 
             return []
         else:
             return history
 
 
-class FlowReaction(Balancer.FlowReaction):
+class FlowReaction(Balancer):
     """
     Fall specific implementation of a Balancer for adjusting network values. Applies the adjust capacity rule.
     """
@@ -104,7 +108,7 @@ class FlowReaction(Balancer.FlowReaction):
         super(FlowReaction, self).__init__()
         self.storage = []
 
-    def applyrules(self, txl):
+    def apply_change(self, txl):
         """
         Applies the adjust capacity rule
 
