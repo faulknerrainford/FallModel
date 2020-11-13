@@ -31,7 +31,7 @@ def wellbeing_check(tx, agent, fall=None):
         elif mobility <= 1:
             if wellbeing == "Healthy":
                 wellbeing = "At risk"
-                intf.updateagent(tx, agent, "wellbeing", wellbeing)
+                intf.update_agent(tx, agent, "wellbeing", wellbeing)
                 clock = intf.get_time(tx)
                 return ", (At risk, " + str(clock) + ")"
     return None
@@ -83,9 +83,10 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         self.fall = ""
         self.wellbeing = None
         self.referral = None
-        self.social = 6
+        self.friendliness = 6
         self.colocated = None
         self.contacts = None
+        self.new_contacts = None
         self.carers = None
         self.id = agent_id
 
@@ -102,7 +103,7 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         """
         super(Patient, self).generator(tx, params)
         # generate a random set of parameters based on a distribution with mean set by params
-        mobility, mood, resources, inclination, min_social, max_social = tuple(params)
+        mobility, mood, resources, inclination, min_friendliness, max_friendliness = tuple(params)
         self.mobility = npr.normal(mobility, 0.05)  # draw from normal distribution centred on given value
         self.resources = npr.normal(resources, 0.05)
         self.mood = npr.normal(mood, 0.05)
@@ -110,14 +111,15 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         self.inclination = [inc / sum(self.inclination) for inc in self.inclination]
         self.wellbeing = "'At risk'"
         self.referral = "false"
-        self.social = npr.choice(range(min_social, max_social + 1), 1)[0]
+        self.friendliness = npr.choice(range(min_friendliness, max_friendliness + 1), 1)[0]
         # Add agent with params to ind in graph with resources starting at 0
         time = intf.get_time(tx)
         self.log = "(CREATED," + str(time) + ")"
         intf.add_agent(tx, ["Home", "Node", "name"], "Agent:Patient",
                        {"mob": self.mobility, "mood": self.mood, "resources": self.resources,
                         "inclination": self.inclination, "wellbeing": self.wellbeing,
-                        "log": "'" + self.log + "'", "referral": self.referral, "social": self.social})
+                        "log": "'" + self.log + "'", "referral": self.referral, "friendliness": self.friendliness,
+                        "opinion": 0})
 
     def move_perception(self, tx, perception):
         """
@@ -128,7 +130,7 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).perception(tx, perception)
+        super(Patient, self).move_perception(tx, perception)
         if type(self.view) == list:
             edges = self.view
         else:
@@ -136,6 +138,7 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         # filter out options requiring too much resources
         self.mobility = intf.get_node_value(tx, [self.id, "Patient", "id"], "mob")
         self.resources = intf.get_node_value(tx, [self.id, "Patient", "id"], "resources")
+        self.current_resources = self.resources
         if len(edges) > 1:
             valid_edges = SPag.filter_resource(tx, [self.id, "Patient", "id"], edges, "resources", "resources")
             self.view = valid_edges
@@ -151,7 +154,7 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: single edge as final choice
         """
-        super(Patient, self).choose(tx, perception)
+        super(Patient, self).move_choose(tx, perception)
         # filter out options where the agent does not reach the mood threshold
         self.mood = intf.get_node_value(tx, [self.id, "Patient", "id"], "mood")
         self.inclination = intf.get_node_value(tx, [self.id, "Patient", "id"], "inclination")
@@ -162,16 +165,19 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         if len(self.view) <= 1:
             return None
         options = self.view
-        choice = self.view[0]
+        if type(options) != list:
+            options = [options]
+        choice = options[0]
         # Assign weights based on edge types
         types = [edge["type"] for edge in options]
         soc_nodes = [i for i, x in enumerate(types) if x == "social"]
-        soc_paths = [intf.shortest_social_path(tx, options[soc_node].end_node["name"], self.id) for soc_node in
-                     soc_nodes]
-        edge_types = ["social", "fall", "medical", "inactive"]
+        soc_paths = [intf.shortest_social_path(tx, [options[soc_node].end_node["name"], "Node", "name"],
+                                               [self.id, "Agent", "id"]) for soc_node in soc_nodes]
+        soc_paths = [path for path in soc_paths if path]
+        edge_types = ["social", "fall", "medical", "inactive", "immobility"]
         types = [edge_types.index(label) for label in types]
         weights = [positive(self.inclination[label]) for label in types]
-        if soc_paths:
+        if len(soc_paths) > 1:
             rank_length = min(soc_paths)
             check_rank = max(soc_paths)
             adjustment = 1
@@ -201,20 +207,26 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).learn(tx, choice)
+        super(Patient, self).move_learn(tx, choice, service)
         # modify mob, conf, res and resources based on new node
-        self.log = self.log + wellbeing_check(tx, [self.id, "Patient", "id"], self.fall)
+        if not self.current_resources:
+            self.current_resources = self.resources
+        wellbeing_change = wellbeing_check(tx, [self.id, "Patient", "id"], self.fall)
+        if wellbeing_change:
+            self.log = self.log + wellbeing_change
         # switch for type of node and service choice, call service function if service chosen
         if service and not choice.end_node["servicemodel"] == "core":
-            serv_class = specification.ServiceClasses[service["name"]]
-            serv = serv_class(tx, service["name"])
+            serv_class = specification.ServiceClasses[service[0]]
+            serv = serv_class(tx)
             serv.provide_service(tx, [self.id, "Agent", "id"])
         if choice.end_node["servicemodel"] in ["core", "additional"] or not service:
             if "modm" in choice.end_node:
                 self.mobility = positive(npr.normal(choice.end_node["modm"], 0.05) + self.mobility)
                 intf.update_agent(tx, [self.id, "Patient", "id"], "mob", self.mobility)
                 # check for updates to wellbeing and log any changes
-                self.log = self.log + wellbeing_check(tx, [self.id, "Patient", "id"], self.fall)
+                wellbeing_change = wellbeing_check(tx, [self.id, "Patient", "id"], self.fall)
+                if wellbeing_change:
+                    self.log = self.log + wellbeing_change
             if "modmood" in choice.end_node:
                 self.mood = positive(npr.normal(choice.end_node["modmood"], 0.05) + self.mood)
                 intf.update_agent(tx, [self.id, "Patient", "id"], "mood", self.mood)
@@ -246,14 +258,46 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
             self.inclination[3] = self.inclination[3] + 1
         elif self.mobility > 0.8:
             self.inclination[3] = self.inclination[3] - 1
-        intf.update_agent(tx, [self.id, "Patient", "id"], "inclination", self.inclination)
+        agent = [self.id, "Patient", "id"]
+        intf.update_agent(tx, agent, "inclination", self.inclination)
+        # Update opinion
+        if choice["type"] == "medical":
+            if self.mobility > 0.8:
+                opinion = 1
+            elif self.mobility < 0.5:
+                opinion = -1
+            else:
+                opinion = 0
+        else:
+            if self.mobility < 0.5:
+                opinion = -1
+            else:
+                opinion = 0
+        clusters = [[clust, "Cluster", "id"] for clust in intf.check_groupings(tx, agent)]
+        weighted_op = 0
+        total_strength = 0
+        # check the cluster opinion for each cluster and create weighted average based on strength of connection
+        if clusters:
+            for cluster in clusters:
+                op = intf.get_node_value(tx, cluster, "opinion")
+                if opinion * op > 0:
+                    strength = intf.get_edge_value(tx, [agent, cluster], "connectedness")
+                    total_strength = total_strength + strength
+            if total_strength:
+                group_influenced_opinion = opinion * total_strength
+            else:
+                group_influenced_opinion = opinion
+        else:
+            group_influenced_opinion = opinion
+        scaled_opinion = opinion * (0.07 * abs(opinion * group_influenced_opinion) - 0.06)
+        intf.update_agent(tx, agent, "opinion", scaled_opinion)
         # log going into care
         if choice.end_node["name"] == "Care":
             clock = intf.get_time(tx)
             self.log = self.log + ", (Care, " + str(clock) + ")"
         if "cap" in choice.end_node.keys():
             intf.update_node(tx, [choice.end_node["name"], "Node", "name"], "load", choice.end_node["load"] + 1)
-        if self.view[0]["name"] == "Hos" and choice.end_node["name"] != "Hos":
+        if intf.locate_agent(tx,[self.id, "Patient", "id"])["name"] == "Hos" and choice.end_node["name"] != "Hos":
             clock = intf.get_time(tx)
             self.log = self.log + ", (Discharged, " + str(clock) + ")"
         intf.update_agent(tx, [self.id, "Patient", "id"], "log", str(self.log))
@@ -266,10 +310,12 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).payment(tx)
+        super(Patient, self).move_payment(tx)
         # Deduct resources used on edge
         if "resources" in self.choice.keys():
             if "resources" in self.choice.end_node.keys():
+                if not self.current_resources:
+                    self.current_resources = self.resources
                 if specification.carers and self.choice["resources"] + \
                         self.choice.end_node["resources"] > self.current_resources:
                     # Check for carers
@@ -297,7 +343,9 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         if "modm" in self.choice:
             self.mobility = positive(npr.normal(self.choice["modm"], 0.05) + self.mobility)
             intf.update_agent(tx, [self.id, "Patient", "id"], "mob", self.mobility)
-            self.log = self.log + wellbeing_check(tx, [self.id, "Patient", "id"], self.fall)
+            wellbeing_change = wellbeing_check(tx, [self.id, "Patient", "id"], self.fall)
+            if wellbeing_change:
+                self.log = self.log + wellbeing_change
         if "modmood" in self.choice:
             self.mood = positive(npr.normal(self.choice["modmood"], 0.05) + self.mood)
             intf.update_agent(tx, [self.id, "Patient", "id"], "mood", self.mood)
@@ -308,12 +356,14 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         services = super(Patient, self).move_services(tx)
         if not services:
             return None
-        elif "Intervention" in [serv["name"] for serv in services]:
-            if self.mobility < 0.5:
-                return [serv for serv in services if serv["name"] == "Intervention"][0]
-        elif "Care" in [serv["name"] for serv in services]:
-            if self.resources < 0.5:
-                return [serv for serv in services if serv["name"] == "Care"][0]
+        elif "intervention" in [serv[0] for serv in services]:
+            if self.mobility < 0.9:
+                print("Chose a service")
+                return [serv for serv in services if serv[0] == "intervention"][0]
+        elif "care" in [serv[0] for serv in services]:
+            if self.resources < 1:
+                print("Chose a service")
+                return [serv for serv in services if serv[0] == "care"][0]
         else:
             return None
 
@@ -349,12 +399,12 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).look(tx)
+        super(Patient, self).social_perception(tx)
         # If not at home, find co-located agents
         try:
             if intf.locate_agent(tx, [self.id, "Patient", "id"])["name"] != "Home":
                 self.colocated = intf.co_located(tx, [self.id, "Patient", "id"])
-            self.social = intf.get_node_value(tx, [self.id, "Patient", "id"], "social")
+            self.friendliness = intf.get_node_value(tx, [self.id, "Patient", "id"], "friendliness")
         except IndexError:
             return True
 
@@ -366,14 +416,16 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).update(tx)
+        super(Patient, self).social_update(tx)
         # Update existing com links with latest co-location
         self.contacts = intf.agent_contacts(tx, [self.id, "Patient", "id"], "Patient")
         if self.contacts and self.colocated:
-            update = [contact for contact in self.contacts if contact.end_node in self.colocated]
+            update = [contact for contact in self.contacts if contact[1] in self.colocated]
             for contact in update:
-                intf.update_contact_edge(tx, [contact.end_node["id"], "Agent", "id"], [self.id, "Patient", "id"],
-                                         "last_usage", intf.gettime(tx))
+                intf.update_contact_edge(tx, [contact[1], "Agent", "id"], [self.id, "Patient", "id"],
+                                         "last_usage", intf.get_time(tx))
+            self.new_contacts = [contact for contact in self.colocated if contact not in [rel[1]
+                                                                                          for rel in update]]
 
     def social_talk(self, tx):
         """
@@ -384,23 +436,23 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).talk(tx)
-        if self.colocated:
-            new_contacts = [nc for nc in self.colocated if nc not in [contact.end_node for contact in self.contacts]]
-            if new_contacts:
+        super(Patient, self).social_talk(tx)
+        if self.colocated and self.new_contacts:
+            self.new_contacts = [nc for nc in self.new_contacts if nc != self.id]
+            if self.new_contacts:
                 if len(new_contacts) > 1:
-                    new_friend = new_contacts[npr.choice(range(len(new_contacts)))]
+                    new_friend = self.new_contacts[npr.choice(range(len(self.new_contacts)))]
                 else:
-                    new_friend = new_contacts[0]
+                    new_friend = self.new_contacts[0]
                 # Based on relative social values and length of shortest path set probability for forming link with a
                 #  randomly sampled co-located unknown agent. social from 2-8 per agent, combined from 4-16.
                 #  So combined -4 over 24 gives value between 0 and 0.5 plus the if minimum path greater than 6 nothing,
                 #  else from m=2-6 then 1/(2m-2) gives 0.1-0.5 (m=1 or 0 means itself or already connected).
-                prob1 = (new_friend["social"] + self.social - 4) / 24
+                prob1 = (intf.get_node_value(tx, [new_friend, "Agent", "id"], "friendliness") + self.friendliness - 4) / 24
                 while True:
                     try:
                         sp = intf.shortest_path(tx, [self.id, "Patient", "id"],
-                                                [new_friend["id"], "Agent", "id"], 'SOCIAL')
+                                                [new_friend, "Agent", "id"], 'SOCIAL')
                         break
                     except TransientError:
                         pass
@@ -422,10 +474,10 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
                                 ag_type = "friend"
                         else:
                             ag_type = "friend"
-                        intf.createedge(tx, [self.id, "Patient", "id"], [new_friend["id"], "Agent", "id"], 'SOCIAL',
-                                        parameters='created: ' + str(intf.gettime(tx)) + ', utilization: '
-                                                   + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
-                                                   + ", carer: False, type: '" + ag_type + "'")
+                        intf.create_edge(tx, [self.id, "Patient", "id"], [new_friend, "Agent", "id"], 'SOCIAL',
+                                         parameters='created: ' + str(intf.get_time(tx)) + ', utilization: '
+                                                    + str(intf.get_time(tx)) + ', colocation: ' + str(intf.get_time(tx))
+                                                    + ", carer: False, type: '" + ag_type + "'")
                     except IndexError:
                         return None
                     self.contacts = new_friend
@@ -445,7 +497,7 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).listen(tx)
+        super(Patient, self).social_listen(tx)
         if specification.carers and self.contacts and not isinstance(self.contacts, list):
             carers = intf.agent_contacts(tx, [self.contacts["id"], "Patient", "id"], "Carer")
             if carers:
@@ -471,34 +523,35 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
 
         :return: None
         """
-        super(Patient, self).react(tx)
+        super(Patient, self).social_react(tx)
         self.contacts = intf.agent_contacts(tx, [self.id, "Patient", "id"], "SOCIAL")
         # age out social contacts
         for contact in self.contacts:
-            if contact["type"] == "professional" and intf.get_time(tx) - contact["colocation"] > 60:
-                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact.end_node["id"], "Agent", "id"])
-            elif contact["type"] == "friend" and intf.gettime(tx) - contact["colocation"] > 120:
-                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact.end_node["id"], "Agent", "id"])
-            elif contact["type"] == "family" and intf.gettime(tx) - contact["colocation"] > 240:
-                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact.end_node["id"], "Agent", "id"])
+            if contact[0]["type"] == "professional" and intf.get_time(tx) - contact[0]["colocation"] > 60:
+                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact[1], "Agent", "id"])
+            elif contact[0]["type"] == "friend" and intf.get_time(tx) - contact[0]["colocation"] > 120:
+                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact[1], "Agent", "id"])
+            elif contact[0]["type"] == "family" and intf.get_time(tx) - contact[0]["colocation"] > 240:
+                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact[1], "Agent", "id"])
         self.contacts = intf.agent_contacts(tx, [self.id, "Patient", "id"], "SOCIAL")
-        while len(self.contacts) > self.social:
-            for contact in self.contacts:
-                if intf.get_time(tx) - contact['created'] < 5:
-                    intf.delete_contact(tx, [self.id, "Patient", "id"], [contact.end_node["id"], "Agent", "id"])
-                self.contacts = intf.agent_contacts(tx, [self.id, "Patient", "id"], "SOCIAL")
+        if self.contacts:
+            while len(self.contacts) > self.friendliness:
+                for contact in self.contacts:
+                    if intf.get_time(tx) - contact[0]['created'] < 5:
+                        intf.delete_contact(tx, [self.id, "Patient", "id"], [contact[1], "Agent", "id"])
+                    self.contacts = intf.agent_contacts(tx, [self.id, "Patient", "id"], "SOCIAL")
         oldest_usage = 0
         contact_drop = None
-        while len(self.contacts) > self.social:
+        while len(self.contacts) > self.friendliness:
             for contact in self.contacts:
-                if intf.get_time(tx) - contact["usage"] > oldest_usage:
+                if intf.get_time(tx) - contact[0]["usage"] > oldest_usage:
                     contact_drop = contact
                     oldest_usage = intf.get_time(tx) - contact["usage"]
             if contact_drop:
-                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact_drop.end_node["id"], "Agent", "id"])
+                intf.delete_contact(tx, [self.id, "Patient", "id"], [contact_drop[1], "Agent", "id"])
 
 
-class Carer(SPmodelling.Agent.MobileAgent, CommunicativeAgent):
+class Carer(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgent):
     """
     Physical and mobile agent mimics an individual who may not have declining mobility but helps
     those who do.
@@ -508,7 +561,7 @@ class Carer(SPmodelling.Agent.MobileAgent, CommunicativeAgent):
         self.resources = None
         self.mobility = None
         self.current_resources = None
-        self.social = 6
+        self.friendliness = 6
         self.colocated = None
         self.contacts = None
         self.carers = None
@@ -960,7 +1013,6 @@ class Carer(SPmodelling.Agent.MobileAgent, CommunicativeAgent):
         """
         if "Patient" not in intf.checknodelabel(tx, self.id, "id"):
             super(Carer, self).socialise(tx)
-
 
 # noinspection
 # class FallAgent(SPmodelling.Agent.MobileAgent):

@@ -1,4 +1,4 @@
-from FallModel.Fall_agent import FallAgent, Patient, Carer
+from FallModel.Fall_agent import Patient, Carer
 import SPmodelling.Interface as intf
 import SPmodelling.Reset
 import numpy.random as npr
@@ -40,14 +40,16 @@ class Reset(SPmodelling.Reset.Reset):
                    "servicemodel:'addative'})")
         else:
             tx.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modmood:0.2, servicemodel:'addative'})")
-        tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
-               c=specification.Intervention_cap)
-        if specification.Open_Intervention:
+        if specification.Intervention != "service":
+            tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
+                   c=specification.Intervention_cap)
+        if specification.Intervention == "open":
             tx.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
                    c=specification.Open_Intervention_cap)
         tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0, "
                "servicemodel:'addative'})")
         tx.run("CREATE (a:Node {name:'GP', servicemodel:'alternative'})")
+        tx.run("CREATE (a:Organisation {name:'localNHS'})")
 
     @staticmethod
     def set_edges(tx):
@@ -89,13 +91,13 @@ class Reset(SPmodelling.Reset.Reset):
                "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.5, type:'fall'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Care' "
-               "CREATE (a)-[r:REACHES {mood:0}]->(b)")
+               "CREATE (a)-[r:REACHES {mood:0, type:'immobility'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Home' AND b.name='Home' "
                "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
         tx.run("MATCH (a), (b) "
                "WHERE a.name='Hos' AND b.name='Care' "
-               "CREATE (a)-[r:REACHES {mood:0}]->(b)")
+               "CREATE (a)-[r:REACHES {mood:0, type:'immobility'}]->(b)")
         if specification.activities:
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='Home' AND b.name='SocialLunch' "
@@ -146,7 +148,7 @@ class Reset(SPmodelling.Reset.Reset):
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='Social' AND b.name='GP' "
                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-        if specification.Open_Intervention:
+        if specification.Intervention == "open":
             tx.run("MATCH (a), (b) "
                    "WHERE a.name='InterventionOpen' AND b.name='GP' "
                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, modc:-0.025, type:'fall'}]->(b)")
@@ -179,43 +181,43 @@ class Reset(SPmodelling.Reset.Reset):
         if specification.carers == "agents":
             ca = Carer(None)
             for i in range(cps):
-                ca.generator(tx, [2, 2, 4, [3, 0, 0, 1], 2, 8])
+                ca.generator(tx, [2, 2, 4, [3, 0, 0, 1, 0], 2, 8])
         elif specification.carers:
             for j in range(cps):
                 tx.run("CREATE (a:Carer {id:{j_id}, resources:20})", j_id=j)
         if not specification.carers:
             pps = ps
         for i in range(pps):
-            fa.generator(tx, [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8])
+            fa.generator(tx, [0.8, 0.9, 1, [2, 0, 1, 2, 0], 2, 8])
             if npr.random(1) < 0.5:
                 if npr.random(1) < 0.5:
-                    samplesize = 2
+                    sample_size = 2
                 else:
-                    samplesize = 1
+                    sample_size = 1
                 if not specification.carers:
                     cps = ps
-                newfriends = npr.choice(range(cps), size=samplesize, replace=False)
-                for nf in newfriends:
+                new_friends = npr.choice(range(cps), size=sample_size, replace=False)
+                for nf in new_friends:
                     if npr.random(1) < 0.8:
-                        agtype = '"family"'
+                        ag_type = '"family"'
                     else:
-                        agtype = '"social"'
+                        ag_type = '"social"'
                     intf.create_edge(tx, [i + cps, 'Agent', 'id'], [nf, 'Agent', 'id'], 'SOCIAL', 'created: '
-                                     + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
-                                     + ', utilization: ' + str(intf.gettime(tx))
-                                     + ', type: ' + agtype)
+                                     + str(intf.get_time(tx)) + ', colocation: ' + str(intf.get_time(tx))
+                                     + ', utilization: ' + str(intf.get_time(tx))
+                                     + ', type: ' + ag_type)
         for i in range(ps):
-            newfriends = npr.choice(range(ps), size=npr.choice(range(3)), replace=False)
-            for nf in newfriends:
+            new_friends = npr.choice(range(ps), size=npr.choice(range(3)), replace=False)
+            for nf in new_friends:
                 if not nf == i:
                     if npr.random(1) < 0.5:
-                        agtype = '"family"'
+                        ag_type = '"family"'
                     else:
-                        agtype = '"social"'
+                        ag_type = '"social"'
                     intf.create_edge(tx, [i, 'Agent', 'id'], [nf, 'Agent', 'id'], 'SOCIAL', 'created: '
-                                     + str(intf.gettime(tx)) + ', colocation: ' + str(intf.gettime(tx))
-                                     + ', utilization: ' + str(intf.gettime(tx))
-                                     + ', type: ' + agtype)
+                                     + str(intf.get_time(tx)) + ', colocation: ' + str(intf.get_time(tx))
+                                     + ', utilization: ' + str(intf.get_time(tx))
+                                     + ', type: ' + ag_type)
 
     @staticmethod
     def set_service(tx):
@@ -226,13 +228,13 @@ class Reset(SPmodelling.Reset.Reset):
 
         :return:None
         """
-        tx.run("CREATE (a:Service {name:care, resources:0.5, capacity:5, load:0, date:0})")
-        tx.run("CREATE (a:Service {name:intervention, resources:-0.8, mobility:0.3, capacity:2, load:0, date:0})")
+        tx.run("CREATE (a:Service {name:'care', resources:0.5, capacity:5, load:0, date:0})")
+        tx.run("CREATE (a:Service {name:'intervention', resources:-0.8, mobility:0.3, capacity:2, load:0, date:0})")
         tx.run("MATCH (s:Service), (n:Node) "
-               "WHERE s.name='Care' AND n.name='Home' "
+               "WHERE s.name='care' AND n.name='Home' "
                "CREATE (s)-[r:PROVIDE]->(n)")
         tx.run("MATCH (s:Service), (n:Node) "
-               "WHERE s.name='Intervention' AND n.name='Hospital' "
+               "WHERE s.name='intervention' AND n.name='Hos' "
                "CREATE (s)-[r:PROVIDE]->(n)")
 
 

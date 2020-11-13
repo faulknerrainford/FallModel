@@ -20,8 +20,10 @@ def fall_or_al_check(tx, agent, edges):
 
     :return: view of available edges, possibly reduced by a fall or redirection to assisted living.
     """
+    if type(edges) != list:
+        edges = [edges]
     destinations = [edge.end_node for edge in edges]
-    mob = intf.get_node_value[tx, agent, "mob"]
+    mob = intf.get_node_value(tx, agent, "mob")
     view = edges
     # If Care in options check for zero mobility
     if "Care" in destinations and mob <= 0:
@@ -129,7 +131,13 @@ class FallNode(SPmodelling.Node.Node):
 
     def available_services(self, tx):
         services = super(FallNode, self).available_services(tx)
-        return [service for service in services if service["capacity"] > service["load"]]
+        serv = []
+        for service in services:
+            serv_cap = intf.get_node_value(tx, service, "capacity")
+            serv_load = intf.get_node_value(tx, service, "load")
+            if serv_cap > serv_load:
+                serv.append(service)
+        return serv
 
     def agents_ready(self, tx):
         """
@@ -139,7 +147,7 @@ class FallNode(SPmodelling.Node.Node):
 
         :return: None
         """
-        super(FallNode, self).agentsready(tx)
+        super(FallNode, self).agents_ready(tx)
 
     def agent_perception(self, tx, agent, dest=None, wait_time=None):
         """
@@ -463,13 +471,13 @@ class InterventionNode(FallNode):
         # No queue so prediction not needed
 
 
-class CareNode:
+class CareNode(SPmodelling.Node.Node):
     """
     This node is not a true node. It is a sink node which only processes agents on arrival. As such it only has an
     agents_ready function which processes the agents out of the system to save database space.
     """
 
-    def __init__(self):
+    def __init__(self, name=None):
         """
         Sets up node name and data storage for monitor and analysis of system.
         """
@@ -509,15 +517,21 @@ class CareNode:
                     self.severe = self.severe + 1
             self.agents = self.agents + 1
             intf.update_node(tx, ["Care", "Node", "name"], "interval", self.interval)
-            intf.update_node(tx, ["Care", "Node", "name"], "mild", self.mild, "name")
-            intf.update_node(tx, ["Care", "Node", "name"], "moderate", self.moderate, "name")
-            intf.update_node(tx, ["Care", "Node", "name"], "severe", self.severe, "name")
-            intf.update_node(tx, ["Care", "Node", "name"], "agents", self.agents, "name")
-            aglog = "Agent " + str(agent["id"]) + ": " + agent["log"]
+            intf.update_node(tx, ["Care", "Node", "name"], "mild", self.mild)
+            intf.update_node(tx, ["Care", "Node", "name"], "moderate", self.moderate)
+            intf.update_node(tx, ["Care", "Node", "name"], "severe", self.severe)
+            intf.update_node(tx, ["Care", "Node", "name"], "agents", self.agents)
+            aglog = "Agent " + str(agent[0]) + ": " + log
             pickle.dump(aglog, file)
             intf.delete_agent(tx, agent)
         # file.close()
         return None
+
+    def agent_perception(self, tx, agent, dest=None, wait_time=None):
+        pass
+
+    def agent_prediction(self, tx, agent):
+        pass
 
     # While Care is not actually a node it does have an agents_ready function which is triggered on arrival.
     # This causes the agents log to be saved to file.
@@ -537,7 +551,7 @@ class HomeNodeV0(FallNode):
         self.recoverrate = rr
         self.confchange = cc
 
-    def agentsready(self, tx):
+    def agents_ready(self, tx):
         """
         If there are agents ready at this time step the node checks the nodes mobility, confidence and resources
         modifiers. It uses those values to update the agent based on the agents duration at the home node. After this
@@ -561,7 +575,7 @@ class HomeNodeV0(FallNode):
                     intf.updateagent(ag["id"], "conf",
                                      npr.normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1))
                     intf.updateagent(ag["id"], "resources", self.queue[clock][ag["id"]][1] * self.recoverrate)
-        super(HomeNodeV0, self).agentsready(tx, intf)
+        super(HomeNodeV0, self).agents_ready(tx, intf)
 
     def agentperception(self, tx, agent, dest=None, waittime=None):
         return super(HomeNodeV0, self).agentperception(tx, agent, dest, waittime)
@@ -668,7 +682,7 @@ class HosNodeV0(FallNode):
         self.recoverrate = rr
         self.confchange = cc
 
-    def agentsready(self, tx):
+    def agents_ready(self, tx):
         """
         If there are agents ready at this time step the node checks the nodes mobility, confidence and resources
         modifiers. It uses those values to update the agent based on the agents duration at the Hospital node. It also
@@ -696,7 +710,7 @@ class HosNodeV0(FallNode):
                     intf.updateagent(tx, ag["id"], "referral", True)
                     agent = Patient(ag["id"])
                     agent.logging(tx, "Hos discharge, " + str(intf.gettime(tx)))
-        super(HosNodeV0, self).agentsready(tx, intf)
+        super(HosNodeV0, self).agents_ready(tx, intf)
 
     def agentperception(self, tx, agent, dest=None, waittime=None):
         return super(HosNodeV0, self).agentperception(tx, agent, dest, waittime)

@@ -2,45 +2,44 @@ import SPmodelling.Service
 import SPmodelling.Interface as intf
 
 
-class Care(SPmodelling.Service):
+class Care(SPmodelling.Service.Service):
 
     def __init__(self, tx):
-        super(Care, self).__init__("care")
+        super(Care, self).__init__("care", "care")
         self.name = "care"
-        self.resources = intf.getnodevalue(tx, self.name, "resources", "Service", "name")
-        self.date = intf.getnodevalue(tx, self.name, "date", "Service", "name")
-        self.capacity = intf.getnodevalue(tx, self.name, "capacity", "Service", "name")
-        self.load = intf.getnodevalue(tx, self.name, "load", "Service", "name")
+        self.resources = intf.get_node_value(tx, [self.name, "Service", "name"], "resources")
+        self.date = intf.get_node_value(tx, [self.name, "Service", "name"], "date")
+        self.capacity = intf.get_node_value(tx, [self.name, "Service", "name"], "capacity")
+        self.load = intf.get_node_value(tx, [self.name, "Service", "name"], "load")
 
-    @staticmethod
     def provide_service(self, tx, agent):
         [ag_id, ag_label, ag_uid] = agent
-        resources = intf.getnodevalue(tx, ag_id, "resources", ag_label, ag_uid)
+        resources = intf.get_node_value(tx, agent, "resources")
         # add resources to agent
-        intf.updateagent(tx, ag_id, "resources", resources+self.resources)
+        intf.update_agent(tx, agent, "resources", resources + self.resources)
         # check for day end and reset capacity
-        if intf.gettime(tx) != self.date:
-            intf.updatenode(tx, self.name, "date", intf.gettime(tx), "name", "Serivce")
-            intf.updatenode(tx, self.name, "load", 0, "name", "Serivce")
+        if intf.get_time(tx) != self.date:
+            intf.update_node(tx, [self.name, "Service", "name"], "date", intf.get_time(tx))
+            intf.update_node(tx, [self.name, "Service", "name"], "load", 0)
 
 
-class Intervention(SPmodelling.Service):
+class Intervention(SPmodelling.Service.Service):
 
     def __init__(self, tx):
-        super(Intervention, self).__init__()
-        self.resources = intf.getnodevalue(tx, self.name, "resources", "Service", "name")
-        self.mobility = intf.getnodevalue(tx, self.name, "mobility", "Service", "name")
+        super(Intervention, self).__init__("intervention", "intervention")
+        self.resources = intf.get_node_value(tx, [self.name, "Service", "name"], "resources")
+        self.mobility = intf.get_node_value(tx, [self.name, "Service", "name"], "mobility")
+        self.date = intf.get_node_value(tx, [self.name, "Service", "name"], "date")
 
-    @staticmethod
     def provide_service(self, tx, agent):
         [ag_id, ag_label, ag_uid] = agent
         resources = intf.get_node_value(tx, [ag_id, ag_label, ag_uid], "resources")
-        mobility = intf.getnodevalue(tx, [ag_id,ag_label, ag_uid], "mob")
+        mobility = intf.get_node_value(tx, [ag_id,ag_label, ag_uid], "mob")
         # add resources to agent
-        intf.update_agent(tx, [ag_id, ag_label, ag_uid], "resources", resources+self.resources)
-        intf.update_agent(tx, [ag_id, ag_label, ag_uid], "mob", mobility+self.mobility)
+        intf.update_agent(tx, [ag_id, ag_label, ag_uid], "resources", resources + self.resources)
+        intf.update_agent(tx, [ag_id, ag_label, ag_uid], "mob", mobility + self.mobility)
         # check for day end and reset capacity
-        if intf.gettime(tx) != self.date:
+        if intf.get_time(tx) != self.date:
             intf.update_node(tx, [self.name, "Service", "name"], "date", intf.get_time(tx))
             intf.update_node(tx, [self.name, "Service", "name"], "load", 0)
 

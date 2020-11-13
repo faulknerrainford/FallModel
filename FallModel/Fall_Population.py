@@ -3,7 +3,7 @@ from FallModel.Fall_agent import Carer, Patient
 import SPmodelling.Population
 
 c_params = [2, 2, 4, [3, 0, 0, 1], 2, 8]
-p_params = [0.8, 0.9, 1, [2, 0, 1, 2], 2, 8]
+p_params = [0.8, 0.9, 1, [2, 0, 1, 2, 0], 2, 8]
 params = [0.8, 0.9, 1]
 
 
@@ -16,7 +16,7 @@ def countactiveagents(tx, count_type="Agent"):
 
     :return: number of active agents in system
     """
-    query_total = "MATCH (n:" + count_type + ") ""WITH n ""RETURN count(*)"
+    query_total = "MATCH (n:" + count_type + ") WITH n RETURN count(*)"
     query_care = "MATCH (n:" + count_type + ")-[r:LOCATED]->(a:Node) ""WHERE a.name='Care' ""RETURN count(*)"
     total_agents = tx.run(query_total).value()[0]
     care_agents = tx.run(query_care).value()[0]
@@ -39,8 +39,9 @@ class FallPopulation(SPmodelling.Population.Population):
 
         :return: int number of agents below population size or false if population correct
         """
-        activecarers = tx.read_transaction(countactiveagents, "Carer")
-        totalactive = tx.read_transaction(countactiveagents)
+        # activecarers = tx.read_transaction(countactiveagents, "Carer")
+        activecarers = 0
+        totalactive = countactiveagents(tx)
         if totalactive < ps:
             return [ps - totalactive, (ps//4)-activecarers, (ps - totalactive)-((ps//4)-activecarers)]
         return False
@@ -61,11 +62,11 @@ class FallPopulation(SPmodelling.Population.Population):
             [total_ags, carers, patients] = missing
             carer = Carer(None)
             for i in range(carers):
-                tx.write_transaction(carer.generator, c_params)
+                carer.generator(tx, c_params)
             patient = Patient(None)
             for i in range(patients):
-                tx.write_transaction(patient.generator, p_params)
+                patient.generator(tx, p_params)
         else:
-            agent = specification.Agent(None)
+            agent = Patient(None)
             for i in missing:
-                tx.write_transaction(agent.generator, p_params)
+                agent.generator(tx, p_params)
