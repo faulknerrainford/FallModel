@@ -3,7 +3,7 @@ Introduction
 
 The FallModel package is a domain specific implementation of the SPmodelling framework:
 https://faulknerrainford.github.io/SPmodelling/
-Both packages are required to run the model. It is recommened that runs are done using a specification and the
+Both packages are required to run the model. It is recommended that runs are done using a specification and the
 SPModelling function SPm.py, see SPmodelling documentation for its usage.
 
 It is an abstract model of care, social and medical systems surrounding those with declining mobility.
@@ -34,6 +34,7 @@ specification for FallModel must start with:
     from FallModel import Fall_agent as Agents
     from FallModel import Fall_Population as Population
     from FallModel import Fall_reset_dynamic as Reset
+    from FallModel import Fall_service as Service
     import sys
 
 This connects the FallModel into the SPmodelling systems. The SPm function must be called from the same location as
@@ -53,6 +54,14 @@ It then defines the name for this specification, this particular network. It use
 
 The nodes used in the network are defines in terms of the FallModel nodes. These objects will be used to process the
 agents flow for each node in the flow function.
+
+.. code-block:: python
+    PatientClasses = {"Patient":Agents.Patient}
+    NodeClasses = {"Care":Nodes.CareNode, "Hos":Nodes.HosNode, "Social":Nodes.SocialNode, "GP":Nodes.GPNode,
+                   "Home":Nodes.HomeNode}
+    ServiceClasses = {"care":Service.care, "intervention":Service.intervention}
+
+Classes to connect database labels to classes.
 
 .. code-block:: python
 
@@ -80,13 +89,11 @@ Finally we have settings for the reset scripts and balancer:
 
 .. code-block:: python
 
-    Intervention_cap = 2
+    Carers = None
     Open_Intervention = False
-    Open_Intervention_cap = 0
-    """Agents allowed to use Open Intervention"""
-    Intervention_Limit = "'Fallen, At risk, Healthy'"
-    """ Tells balancer if it needs to adjust OpenIntervention as well as Intervention"""
-    dynamic = False
+
+Additional flags for the system to determine if carers are agents and if the open intervention node is being used in the
+system.
 
 Running
 --------

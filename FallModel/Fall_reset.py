@@ -29,27 +29,30 @@ class Reset(SPmodelling.Reset.Reset):
 
         :return: None
         """
-        tx.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modmood:-0.05, servicemodel:'alternative'})")
-        tx.run("CREATE (a:Node {name:'Home', resources:0.3, servicemodel:'addative'})")
+        intf.add_node(tx, ['Hos', 'Node', 'name'], {'resources': 0.2, 'modm': -0.1, 'modmood': -0.05,
+                                                    'servicemodel': 'alternative'})
+        intf.add_node(tx, ['Home', 'Node', 'name'], {'resources': 0.3, 'servicemodel': 'addative'})
         if specification.activities:
-            tx.run("CREATE (a:Node {name:'SocialLunch', resources:-0.4, modm:0.025, modmood:0.2, "
-                   "servicemodel:'addative'})")
-            tx.run("CREATE (a:Node {name:'SocialWalk', resources:-0.5, modm:0.075, modmood:0.2, "
-                   "servicemodel:'addative'})")
-            tx.run("CREATE (a:Node {name:'SocialCraft', resources:-0.45, modm:0.05, modmood:0.2, "
-                   "servicemodel:'addative'})")
+            intf.add_node(tx, ['SocialLunch', 'Node', 'name'], {'resources': -0.4, 'modm': 0.025, 'modmood': 0.2,
+                                                                'servicemodel': 'addative'})
+            intf.add_node(tx, ['SocialWalk', 'Node', 'name'], {'resources': -0.5, 'modm': 0.075, 'modmood': 0.2,
+                                                               'servicemodel': 'addative'})
+            intf.add_node(tx, ['SocialCraft', 'Node', 'name'], {'resources': -0.45, 'modm': 0.05, 'modmood': 0.2,
+                                                                'servicemodel': 'addative'})
         else:
-            tx.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modmood:0.2, servicemodel:'addative'})")
+            intf.add_node(tx, ['Social', 'Node', 'name'], {'resources': -0.4, 'modm': 0.05, 'modmood': 0.2,
+                                                           'servicemodel': 'addative'})
         if specification.Intervention != "service":
-            tx.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
-                   c=specification.Intervention_cap)
+            intf.add_node(tx, ['Intervention', 'Node', 'name'], {'resources': -0.8, 'modm': 0.3, 'modmood': 0.3,
+                                                                 'cap': specification.Intervention_cap, 'load': 0})
         if specification.Intervention == "open":
-            tx.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
-                   c=specification.Open_Intervention_cap)
-        tx.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0, "
-               "servicemodel:'addative'})")
-        tx.run("CREATE (a:Node {name:'GP', servicemodel:'alternative'})")
-        tx.run("CREATE (a:Organisation {name:'localNHS'})")
+            intf.add_node(tx, ['InterventionOpen', 'Node', 'name'], {'resources': -0.8, 'modm': 0.3, 'modmood': 0.3,
+                                                                     'cap': specification.Open_Intervention_cap,
+                                                                     'load': 0})
+        intf.add_node(tx, ['Care', 'Node', 'name'], {'time': 't', 'interval': 0, 'mild': 0, 'moderate': 0, 'severe': 0,
+                                                     'agents': 0, 'servicemodel': 'addative'})
+        intf.add_node(tx, ['GP', 'Node', 'name'], {'servicemodel': 'alternative'})
+        intf.add_node(tx, ['localNHS', 'Organisation', 'name'])
 
     @staticmethod
     def set_edges(tx):
@@ -62,107 +65,74 @@ class Reset(SPmodelling.Reset.Reset):
 
         :return: None
         """
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Hos' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {mood:0, resources:-0.1, type:'inactive'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Home' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Intervention' AND b.name='GP' "
-               "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='GP' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {mood:0, type:'fall'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='GP' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Home' AND b.name='Intervention' "
-               "CREATE (a)-[r:REACHES {resources:-0.2, mood:0.1, allowed:'Fallen', ref:'True', type:'medical'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Intervention' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {resources:-0.05, mood:0, type:'inactive'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Intervention' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Home' AND b.name='Hos' "
-               "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.5, type:'fall'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Home' AND b.name='Care' "
-               "CREATE (a)-[r:REACHES {mood:0, type:'immobility'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Home' AND b.name='Home' "
-               "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
-        tx.run("MATCH (a), (b) "
-               "WHERE a.name='Hos' AND b.name='Care' "
-               "CREATE (a)-[r:REACHES {mood:0, type:'immobility'}]->(b)")
+        intf.create_edge(tx, ['Hos', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'resources': -0.1, 'type': 'inactive'})
+        intf.create_edge(tx, ['Home', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'resources': -0.3, 'modm':-0.1, 'type':'fall', 'modmood':-0.025})
+        intf.create_edge(tx, ['Intervention', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'resources': -0.3, 'modm':-0.1, 'type':'fall', 'modmood':-0.025})
+        intf.create_edge(tx, ['GP', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'type':'fall'})
+        intf.create_edge(tx, ['GP', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'type':'inactive'})
+        intf.create_edge(tx, ['Home', 'Node', 'name'], ['Intervention', 'Node', 'name'], 'REACHES',
+                         {'resources':-0.2, 'mood':0.1, 'allowed':'Fallen', 'ref':'True', 'type':'medical'})
+        intf.create_edge(tx, ['Intervention', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'resources':-0.05, 'mood':0, 'type':'inactive'})
+        intf.create_edge(tx, ['Intervention', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'resources': -0.8, 'modm':-0.25, 'modc':-0.35, 'type':'fall'})
+        intf.create_edge(tx, ['Home', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'resources': -0.8, 'modm':-0.25, 'modc':-0.5, 'type':'fall'})
+        intf.create_edge(tx, ['Home', 'Node', 'name'], ['Care', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'type':'immobility'})
+        intf.create_edge(tx, ['Home', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'type':'inactive'})
+        intf.create_edge(tx, ['Hos', 'Node', 'name'], ['Care', 'Node', 'name'], 'REACHES',
+                         {'mood':0, 'type':'immobility'})
         if specification.activities:
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Home' AND b.name='SocialLunch' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialLunch' AND b.name='Home' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialLunch' AND b.name='Hos' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialLunch' AND b.name='GP' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Home' AND b.name='SocialWalk' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.25, type:'social'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialWalk' AND b.name='Home' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialWalk' AND b.name='Hos' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialWalk' AND b.name='GP' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Home' AND b.name='SocialCraft' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialCraft' AND b.name='Home' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialCraft' AND b.name='Hos' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='SocialCraft' AND b.name='GP' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+            intf.create_edge(tx, ['Home', 'Node', 'name'], ['SocialLunch', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0.2, 'type':'social'})
+            intf.create_edge(tx, ['SocialLunch', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0, 'type':'inactive'})
+            intf.create_edge(tx, ['SocialLunch', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.8, 'modm':-0.25, 'modc':-0.35, 'type':'fall'})
+            intf.create_edge(tx, ['SocialLunch', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.3, 'modm':-0.1, 'type':'fall', 'modmood':-0.025})
+            intf.create_edge(tx, ['Home', 'Node', 'name'], ['SocialWalk', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0.25, 'type':'social'})
+            intf.create_edge(tx, ['SocialWalk', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0, 'type':'inactive'})
+            intf.create_edge(tx, ['SocialWalk', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.8, 'modm':-0.25, 'modc':-0.35, 'type':'fall'})
+            intf.create_edge(tx, ['SocialWalk', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.3, 'modm':-0.1, 'type':'fall', 'modmood':-0.025})
+            intf.create_edge(tx, ['Home', 'Node', 'name'], ['SocialCraft', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0.2, 'type':'social'})
+            intf.create_edge(tx, ['SocialCraft', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0, 'type':'inactive'})
+            intf.create_edge(tx, ['SocialCraft', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.8, 'modm':-0.25, 'modc':-0.35, 'type':'fall'})
+            intf.create_edge(tx, ['SocialCraft', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.3, 'modm':-0.1, 'type':'fall', 'modmood':-0.025})
         else:
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Home' AND b.name='Social' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Social' AND b.name='Home' "
-                   "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Social' AND b.name='Hos' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Social' AND b.name='GP' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+            intf.create_edge(tx, ['Home', 'Node', 'name'], ['Social', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0.2, 'type':'social'})
+            intf.create_edge(tx, ['Social', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.1, 'mood':0, 'type':'inactive'})
+            intf.create_edge(tx, ['Social', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.8, 'modm':-0.25, 'modc':-0.35, 'type':'fall'})
+            intf.create_edge(tx, ['Social', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.3, 'modm':-0.1, 'type':'fall', 'modmood':-0.025})
         if specification.Intervention == "open":
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='InterventionOpen' AND b.name='GP' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, modc:-0.025, type:'fall'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='InterventionOpen' AND b.name='Hos' "
-                   "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='InterventionOpen' AND b.name='Home' "
-                   "CREATE (a)-[r:REACHES {resources:-0.2, mood:0, type:'inactive'}]->(b)")
-            tx.run("MATCH (a), (b) "
-                   "WHERE a.name='Home' AND b.name='InterventionOpen' "
-                   "CREATE (a)-[r:REACHES {resources:-0.05, mood:0.2, allowed:$limits, ref:'False', "
-                   "type:'medical'}]->(b)",
-                   limits=specification.Open_Intervention_Limits)
+            intf.create_edge(tx, ['InterventionOpen', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.3, 'modm':-0.1, 'modc':-0.025, 'type':'fall'})
+            intf.create_edge(tx, ['InterventionOpen', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood':0, 'resources': -0.8, 'modm':-0.25, 'modc':-0.35, 'type':'fall'})
+            intf.create_edge(tx, ['InterventionOpen', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.2, 'mood':0, 'type':'inactive'})
+            intf.create_edge(tx, ['Home', 'Node', 'name'], ['InterventionOpen', 'Node', 'name'], 'REACHES',
+                             {'resources':-0.05, 'mood':0.2, 'allowed':specification.Open_Intervention_Limits,
+                              'ref':'False', 'type':'medical'})
 
     @staticmethod
     def generate_population(tx, ps):
@@ -184,7 +154,7 @@ class Reset(SPmodelling.Reset.Reset):
                 ca.generator(tx, [2, 2, 4, [3, 0, 0, 1, 0], 2, 8])
         elif specification.carers:
             for j in range(cps):
-                tx.run("CREATE (a:Carer {id:{j_id}, resources:20})", j_id=j)
+                intf.add_node(tx, [j, 'Carer', 'id'], {'resources':20})
         if not specification.carers:
             pps = ps
         for i in range(pps):
@@ -228,14 +198,11 @@ class Reset(SPmodelling.Reset.Reset):
 
         :return:None
         """
-        tx.run("CREATE (a:Service {name:'care', resources:0.5, capacity:5, load:0, date:0})")
-        tx.run("CREATE (a:Service {name:'intervention', resources:-0.8, mobility:0.3, capacity:2, load:0, date:0})")
-        tx.run("MATCH (s:Service), (n:Node) "
-               "WHERE s.name='care' AND n.name='Home' "
-               "CREATE (s)-[r:PROVIDE]->(n)")
-        tx.run("MATCH (s:Service), (n:Node) "
-               "WHERE s.name='intervention' AND n.name='Hos' "
-               "CREATE (s)-[r:PROVIDE]->(n)")
+        intf.add_node(tx, ['care', 'Service', 'name'], {'resources':0.5, 'capacity':5, 'load':0, 'date':0})
+        intf.add_node(tx, ['intervention', 'Service', 'name'], {'resources':-0.8, 'mobility':0.3, 'capacity':2,
+                                                                'load':0, 'date':0})
+        intf.create_edge(tx, ['care', 'Service', 'name'], ['Home', 'Node', 'name'], 'PROVIDE')
+        intf.create_edge(tx, ['intervention', 'Service', 'name'], ['Hos', 'Node', 'name'], 'PROVIDE')
 
 
 # noinspection

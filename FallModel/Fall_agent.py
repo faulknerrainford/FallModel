@@ -7,6 +7,15 @@ import specification
 
 
 def wellbeing_check(tx, agent, fall=None):
+    """
+    Checks the agents current wellbeing based on its mobility and fall parameter and updates the wellbeing paramater.
+
+    :param tx: neo4j database write transaction
+    :param agent: agent tuple - id, label, id type
+    :param fall: string indicating what type of fall the agent has just undergone, if None the agent has not just fallen
+
+    :return: string to be added to agent log
+    """
     wellbeing = intf.get_node_value(tx, agent, "wellbeing")
     if fall and fall != "Mild":
         if wellbeing != "Fallen":
@@ -57,7 +66,7 @@ def logging(tx, agent, entry):
 
     :param tx: neo4j database write transaction
     :param entry: String to be added to the log
-    :param agent:
+    :param agent: agent tuple - id, label and id type
 
     :return: None
     """
@@ -72,6 +81,9 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
     """
 
     def __init__(self, agent_id):
+        """
+        :param agent_id: integer id number for patient
+        """
         super(Patient, self).__init__(agent_id, nuid="name")
         self.mobility = None
         self.resources = None
@@ -274,7 +286,6 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
             else:
                 opinion = 0
         clusters = [[clust, "Cluster", "id"] for clust in intf.check_groupings(tx, agent)]
-        weighted_op = 0
         total_strength = 0
         # check the cluster opinion for each cluster and create weighted average based on strength of connection
         if clusters:
@@ -353,16 +364,21 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
         return True
 
     def move_services(self, tx):
+        """
+        Gathers a list of services available to the agent and selects if they wish to use one.
+
+        :param tx: neo4j database read or write transaction
+
+        :return: A list of services the agent wishes to use
+        """
         services = super(Patient, self).move_services(tx)
         if not services:
             return None
         elif "intervention" in [serv[0] for serv in services]:
             if self.mobility < 0.9:
-                print("Chose a service")
                 return [serv for serv in services if serv[0] == "intervention"][0]
         elif "care" in [serv[0] for serv in services]:
             if self.resources < 1:
-                print("Chose a service")
                 return [serv for serv in services if serv[0] == "care"][0]
         else:
             return None
@@ -448,7 +464,8 @@ class Patient(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgen
                 #  randomly sampled co-located unknown agent. social from 2-8 per agent, combined from 4-16.
                 #  So combined -4 over 24 gives value between 0 and 0.5 plus the if minimum path greater than 6 nothing,
                 #  else from m=2-6 then 1/(2m-2) gives 0.1-0.5 (m=1 or 0 means itself or already connected).
-                prob1 = (intf.get_node_value(tx, [new_friend, "Agent", "id"], "friendliness") + self.friendliness - 4) / 24
+                prob1 = (intf.get_node_value(tx, [new_friend, "Agent", "id"], "friendliness")
+                         + self.friendliness - 4) / 24
                 while True:
                     try:
                         sp = intf.shortest_path(tx, [self.id, "Patient", "id"],
@@ -558,6 +575,9 @@ class Carer(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgent)
     """
 
     def __init__(self, agent_id):
+        """
+        :param agent_id: unique integer id for carer
+        """
         self.resources = None
         self.mobility = None
         self.current_resources = None
@@ -573,6 +593,7 @@ class Carer(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgent)
         self.wellbeing = None
         self.referral = None
         self.fall = None
+        self.social = None
 
     def generator(self, tx, params):
         """
@@ -1097,8 +1118,8 @@ class Carer(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgent)
 #     def choose(self, tx, perc):
 #         """
 #         Agents conscious choice from possible edges. This is based on the effort of the agent calculated from the
-#         combination of agent and edge values. If the agent has the effort for multiple choices the worth of the edge is
-#         used as a deciding factor.
+#         combination of agent and edge values. If the agent has the effort for multiple choices the worth of the edge
+#         is used as a deciding factor.
 #
 #         :param tx: neo4j database write transaction
 #         :param perc: perception from node perception function.
@@ -1121,8 +1142,8 @@ class Carer(SPmodelling.Agent.MobileAgent, SPmodelling.Agent.CommunicativeAgent)
 #                 choice = self.view
 #         else:
 #             for edge in self.view:
-#                 if edge["effort"] <= edge["mobility"] * (self.mobility + self.confidence * self.mobility_resources) + \
-#                         edge["confidence"] * (self.confidence + self.mobility * self.confidence_resources):
+#                 if edge["effort"] <= edge["mobility"] * (self.mobility + self.confidence * self.mobility_resources)
+#                 + edge["confidence"] * (self.confidence + self.mobility * self.confidence_resources):
 #                     options = options + [edge]
 #             # choose based on current highest worth edge ignores edges with no worth score, these are not choosable
 #             # edges, they are primarily edges indicating a fall
