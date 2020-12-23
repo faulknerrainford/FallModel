@@ -2,12 +2,13 @@
 Network
 ########
 
-There are two versions of the network used in the current modelling. The first only features a single Intervention node.
-The second features two intervention nodes.
+The current version of the network used in the current modelling features 'Provisions' which provide services with out
+the need for detailed modelling of the way the service is provided. We currently model two 'Provisions': 'care' and
+'intervention'.
 
-The network centres around the Home node which has connections to and from the Hospital, GP, Social and Intervention
-nodes and a connection to the Care node (which is a sink node). The other edges in the system mostly signify falls,
-edges to GP from Interventions, Social and Home nodes are there for moderate falls. Likewise the same set of nodes have
+The network centres around the Home node which has connections to and from the Hospital, GP and Social nodes and a
+connection to the Care node (which is a sink node). The other edges in the system mostly signify falls,
+edges to GP from  Social and Home nodes are there for moderate falls. Likewise the same set of nodes have
 edges to Hospital are for severe falls. The last edge from Hospital to Care is like the edge from Home to Care which is
 for agents with mobility less than zero.
 
@@ -20,16 +21,6 @@ Control and Parameter Setting Network
   :alt: Network of nodes, Home in the center with Hospital, GP, Intervention, Social and Care nodes around it. Edges run
         to and from all the nodes to home except Care which only have incoming edges from Home and Hospital and no
         outgoing edges. There are also edges from Intervention and Social to Hospital and GP.
-
-*****************************
-Other Specifications Network
-*****************************
-
-.. image:: FallInterventionOpenNetwork.png
-  :width: 400
-  :alt: Network of nodes, Home in the center with Hospital, GP, Intervention, Open Intervention, Social and Care nodes
-        around it. Edges run to and from all the nodes to home except Care which only have incoming edges from Home and Hospital and no
-        outgoing edges. There are also edges from Intervention, Open Intervention and Social to Hospital and GP.
 
 
 ****************
@@ -140,50 +131,3 @@ Node
 .. automodule:: Fall_nodes
     :members:
 
-*********
-Balancer
-*********
-
-There are two forms of the balancer algorithm, the first used by parameter setting. Most of the existing system
-specifications do not use network dynamics. The second is used by the dynamic specifications.
-
----------------------------
-Parameter Setting Balancer
----------------------------
-
-1. IntervalHistory : list of Intervals
-
-2. :math:`c` := Intervention.Capacity
-
-3. :math:`i` := current average Interval
-4. IntervalHistory += :math:`[i]`
-5. If Interval has increased since last week, and Interval > a week:
-    Intervention.Capacity := :math:`c+1`
-6. Else if Interval has decreased since last week, and Interval < a week:
-    Intervention.Capacity := max:math:`(c-1,0)`
-
---------------------------
-Dynamic Capacity Balancer
---------------------------
-
-1. IntervalHistory : list of Intervals
-
-2. :math:`c_c` := Intervention.Capacity
-
-3. :math:`c_o` := OpenIntervention.Capacity
-
-4. :math:`i` := current average Interval
-5. IntervalHistory += :math:`[i]`
-6. If Interval has increased since last week, and Interval > a week and :math:`c_o`>0:
-    Intervention.Capacity := :math:`c_c+1`
-    OpenIntervention.Capacity := :math:`c_o-1`
-7. Else if Interval has decreased since last week, and Interval < a week and :math:`c_c`>0:
-    Intervention.Capacity := :math:`c_c-1`
-    OpenIntervention.Capacity := :math:`c_o+1`
-
---------------
-Balancer Code
---------------
-
-.. automodule:: Fall_Balancer
-    :members:

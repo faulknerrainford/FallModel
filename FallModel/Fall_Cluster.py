@@ -4,8 +4,16 @@ import specification
 
 
 class FallCluster(SPmodelling.Cluster.Cluster):
+    """
+    Specialised clustering for Fall model
+    """
 
     def __init__(self, dri):
+        """
+        Sets up correct strength parameter for clusters
+
+        :param tx: neo4j database write transaction
+        """
         super(FallCluster, self).__init__(dri, "connectedness")
         clusters = intf.clusters_in_system(dri)
         for cluster in clusters:
@@ -13,7 +21,14 @@ class FallCluster(SPmodelling.Cluster.Cluster):
                 intf.update_node(dri, [cluster, "Cluster", "id"], "opinion", 0)
 
     def apply_change(self, dri):
-        super(FallCluster, self).apply_change(dri)
+        """
+        Updates the clustering in the system
+
+        :param dri: neo4j database write transaction
+
+        :return: None
+        """
+        super(FallCluster, self).apply_change(tx)
         if self.current_clusters:
             clusters = self.current_clusters
         else:
@@ -30,12 +45,23 @@ class FallCluster(SPmodelling.Cluster.Cluster):
         SPmodelling.Cluster.update_cluster_orientation(dri, intf.get_pop_size(dri), "connectedness", 0, "ascending")
 
     def new_cluster(self, dri, cluster_id):
+        """
+        Adds a new cluster to the system based on the cluster number
+
+        :param dri: neo4j database write transaction
+        :param cluster_id: id number of cluster to be added to the system
+
+        :return: None
+        """
         super(FallCluster, self).new_cluster(dri, cluster_id)
         intf.update_node(dri, [cluster_id, "Cluster", "id"], "opinion", 0)
 
 
 class FallOpinion(SPmodelling.Intervenor.Intervenor):
-    
+    """
+    Intervenor to update the opinions of clusters based on the agents in them
+    """
+
     def __init__(self):
         super(FallOpinion, self).__init__("FallOpinion")
 
@@ -47,6 +73,13 @@ class FallOpinion(SPmodelling.Intervenor.Intervenor):
 
     @staticmethod
     def apply_change(dri):
+        """
+        For each cluster form a weighted average opinion of the agents in the group and update the cluster
+
+        :param dri: neo4j database write transaction
+
+        :return: None
+        """
         clusters = intf.clusters_in_system(dri)
         if clusters:
             clusters = [[cluster, "Cluster", "id"] for cluster in clusters]

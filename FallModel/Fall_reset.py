@@ -29,29 +29,30 @@ class Reset(SPmodelling.Reset.Reset):
 
         :return: None
         """
-        ses = dri.session()
-        ses.run("CREATE (a:Node {name:'Hos', resources:0.2, modm:-0.1, modmood:-0.05, servicemodel:'alternative'})")
-        ses.run("CREATE (a:Node {name:'Home', resources:0.3, servicemodel:'addative'})")
+        intf.add_node(dri, ['Hos', 'Node', 'name'], {'resources': 0.2, 'modm': -0.1, 'modmood': -0.05,
+                                                     'servicemodel': 'alternative'})
+        intf.add_node(dri, ['Home', 'Node', 'name'], {'resources': 0.3, 'servicemodel': 'addative'})
         if specification.activities:
-            ses.run("CREATE (a:Node {name:'SocialLunch', resources:-0.4, modm:0.025, modmood:0.2, "
-                    "servicemodel:'addative'})")
-            ses.run("CREATE (a:Node {name:'SocialWalk', resources:-0.5, modm:0.075, modmood:0.2, "
-                    "servicemodel:'addative'})")
-            ses.run("CREATE (a:Node {name:'SocialCraft', resources:-0.45, modm:0.05, modmood:0.2, "
-                    "servicemodel:'addative'})")
+            intf.add_node(dri, ['SocialLunch', 'Node', 'name'], {'resources': -0.4, 'modm': 0.025, 'modmood': 0.2,
+                                                                 'servicemodel': 'addative'})
+            intf.add_node(dri, ['SocialWalk', 'Node', 'name'], {'resources': -0.5, 'modm': 0.075, 'modmood': 0.2,
+                                                                'servicemodel': 'addative'})
+            intf.add_node(dri, ['SocialCraft', 'Node', 'name'], {'resources': -0.45, 'modm': 0.05, 'modmood': 0.2,
+                                                                 'servicemodel': 'addative'})
         else:
-            ses.run("CREATE (a:Node {name:'Social', resources:-0.4, modm:0.05, modmood:0.2, servicemodel:'addative'})")
+            intf.add_node(dri, ['Social', 'Node', 'name'], {'resources': -0.4, 'modm': 0.05, 'modmood': 0.2,
+                                                            'servicemodel': 'addative'})
         if specification.Intervention != "service":
-            ses.run("CREATE (a:Node {name:'Intervention', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
-                    c=specification.Intervention_cap)
+            intf.add_node(dri, ['Intervention', 'Node', 'name'], {'resources': -0.8, 'modm': 0.3, 'modmood': 0.3,
+                                                                  'cap': specification.Intervention_cap, 'load': 0})
         if specification.Intervention == "open":
-            ses.run("CREATE (a:Node {name:'InterventionOpen', resources:-0.8, modm:0.3, modmood:0.3, cap:$c, load:0})",
-                    c=specification.Open_Intervention_cap)
-        ses.run("CREATE (a:Node {name:'Care', time:'t', interval:0, mild:0, moderate:0, severe:0, agents:0, "
-                "servicemodel:'addative'})")
-        ses.run("CREATE (a:Node {name:'GP', servicemodel:'alternative'})")
-        ses.run("CREATE (a:Organisation {name:'localNHS'})")
-        ses.close()
+            intf.add_node(dri, ['InterventionOpen', 'Node', 'name'], {'resources': -0.8, 'modm': 0.3, 'modmood': 0.3,
+                                                                      'cap': specification.Open_Intervention_cap,
+                                                                      'load': 0})
+        intf.add_node(dri, ['Care', 'Node', 'name'], {'time': 't', 'interval': 0, 'mild': 0, 'moderate': 0, 'severe': 0,
+                                                      'agents': 0, 'servicemodel': 'addative'})
+        intf.add_node(dri, ['GP', 'Node', 'name'], {'servicemodel': 'alternative'})
+        intf.add_node(dri, ['localNHS', 'Organisation', 'name'])
 
     @staticmethod
     def set_edges(dri):
@@ -60,113 +61,78 @@ class Reset(SPmodelling.Reset.Reset):
         edges depends on existence of Open Intervention and the types of agents allows along the edge to the Open
         Intervention node, this is given in the specification file.
 
-        :param dir: neo4j database driver
+        :param dri: neo4j database driver
 
         :return: None
         """
-        ses = dri.session()
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Hos' AND b.name='Home' "
-                "CREATE (a)-[r:REACHES {mood:0, resources:-0.1, type:'inactive'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Home' AND b.name='GP' "
-                "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Intervention' AND b.name='GP' "
-                "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='GP' AND b.name='Hos' "
-                "CREATE (a)-[r:REACHES {mood:0, type:'fall'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='GP' AND b.name='Home' "
-                "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Home' AND b.name='Intervention' "
-                "CREATE (a)-[r:REACHES {resources:-0.2, mood:0.1, allowed:'Fallen', ref:'True', type:'medical'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Intervention' AND b.name='Home' "
-                "CREATE (a)-[r:REACHES {resources:-0.05, mood:0, type:'inactive'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Intervention' AND b.name='Hos' "
-                "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Home' AND b.name='Hos' "
-                "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.5, type:'fall'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Home' AND b.name='Care' "
-                "CREATE (a)-[r:REACHES {mood:0, type:'immobility'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Home' AND b.name='Home' "
-                "CREATE (a)-[r:REACHES {mood:0, type:'inactive'}]->(b)")
-        ses.run("MATCH (a), (b) "
-                "WHERE a.name='Hos' AND b.name='Care' "
-                "CREATE (a)-[r:REACHES {mood:0, type:'immobility'}]->(b)")
+        intf.create_edge(dri, ['Hos', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'resources': -0.1, 'type': 'inactive'})
+        intf.create_edge(dri, ['Home', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'resources': -0.3, 'modm': -0.1, 'type': 'fall', 'modmood': -0.025})
+        intf.create_edge(dri, ['Intervention', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'resources': -0.3, 'modm': -0.1, 'type': 'fall', 'modmood': -0.025})
+        intf.create_edge(dri, ['GP', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'type': 'fall'})
+        intf.create_edge(dri, ['GP', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'type': 'inactive'})
+        intf.create_edge(dri, ['Home', 'Node', 'name'], ['Intervention', 'Node', 'name'], 'REACHES',
+                         {'resources': -0.2, 'mood': 0.1, 'allowed': 'Fallen', 'ref': 'True', 'type': 'medical'})
+        intf.create_edge(dri, ['Intervention', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'resources': -0.05, 'mood': 0, 'type': 'inactive'})
+        intf.create_edge(dri, ['Intervention', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'resources': -0.8, 'modm': -0.25, 'modc': -0.35, 'type': 'fall'})
+        intf.create_edge(dri, ['Home', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'resources': -0.8, 'modm': -0.25, 'modc': -0.5, 'type': 'fall'})
+        intf.create_edge(dri, ['Home', 'Node', 'name'], ['Care', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'type': 'immobility'})
+        intf.create_edge(dri, ['Home', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'type': 'inactive'})
+        intf.create_edge(dri, ['Hos', 'Node', 'name'], ['Care', 'Node', 'name'], 'REACHES',
+                         {'mood': 0, 'type': 'immobility'})
         if specification.activities:
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Home' AND b.name='SocialLunch' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialLunch' AND b.name='Home' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialLunch' AND b.name='Hos' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialLunch' AND b.name='GP' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Home' AND b.name='SocialWalk' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.25, type:'social'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialWalk' AND b.name='Home' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialWalk' AND b.name='Hos' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialWalk' AND b.name='GP' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Home' AND b.name='SocialCraft' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialCraft' AND b.name='Home' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialCraft' AND b.name='Hos' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='SocialCraft' AND b.name='GP' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+            intf.create_edge(dri, ['Home', 'Node', 'name'], ['SocialLunch', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0.2, 'type': 'social'})
+            intf.create_edge(dri, ['SocialLunch', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0, 'type': 'inactive'})
+            intf.create_edge(dri, ['SocialLunch', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.8, 'modm': -0.25, 'modc': -0.35, 'type': 'fall'})
+            intf.create_edge(dri, ['SocialLunch', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.3, 'modm': -0.1, 'type': 'fall', 'modmood': -0.025})
+            intf.create_edge(dri, ['Home', 'Node', 'name'], ['SocialWalk', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0.25, 'type': 'social'})
+            intf.create_edge(dri, ['SocialWalk', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0, 'type': 'inactive'})
+            intf.create_edge(dri, ['SocialWalk', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.8, 'modm': -0.25, 'modc': -0.35, 'type': 'fall'})
+            intf.create_edge(dri, ['SocialWalk', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.3, 'modm': -0.1, 'type': 'fall', 'modmood': -0.025})
+            intf.create_edge(dri, ['Home', 'Node', 'name'], ['SocialCraft', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0.2, 'type': 'social'})
+            intf.create_edge(dri, ['SocialCraft', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0, 'type': 'inactive'})
+            intf.create_edge(dri, ['SocialCraft', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.8, 'modm': -0.25, 'modc': -0.35, 'type': 'fall'})
+            intf.create_edge(dri, ['SocialCraft', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.3, 'modm': -0.1, 'type': 'fall', 'modmood': -0.025})
         else:
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Home' AND b.name='Social' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0.2, type:'social'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Social' AND b.name='Home' "
-                    "CREATE (a)-[r:REACHES {resources:-0.1, mood:0, type:'inactive'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Social' AND b.name='Hos' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Social' AND b.name='GP' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, type:'fall', modmood:-0.025}]->(b)")
+            intf.create_edge(dri, ['Home', 'Node', 'name'], ['Social', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0.2, 'type': 'social'})
+            intf.create_edge(dri, ['Social', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.1, 'mood': 0, 'type': 'inactive'})
+            intf.create_edge(dri, ['Social', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.8, 'modm': -0.25, 'modc': -0.35, 'type': 'fall'})
+            intf.create_edge(dri, ['Social', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.3, 'modm': -0.1, 'type': 'fall', 'modmood': -0.025})
         if specification.Intervention == "open":
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='InterventionOpen' AND b.name='GP' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.3, modm:-0.1, modc:-0.025, type:'fall'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='InterventionOpen' AND b.name='Hos' "
-                    "CREATE (a)-[r:REACHES {mood:0, resources: -0.8, modm:-0.25, modc:-0.35, type:'fall'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='InterventionOpen' AND b.name='Home' "
-                    "CREATE (a)-[r:REACHES {resources:-0.2, mood:0, type:'inactive'}]->(b)")
-            ses.run("MATCH (a), (b) "
-                    "WHERE a.name='Home' AND b.name='InterventionOpen' "
-                    "CREATE (a)-[r:REACHES {resources:-0.05, mood:0.2, allowed:$limits, ref:'False', "
-                    "type:'medical'}]->(b)",
-                    limits=specification.Open_Intervention_Limits)
-        ses.close()
+            intf.create_edge(dri, ['InterventionOpen', 'Node', 'name'], ['GP', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.3, 'modm': -0.1, 'modc': -0.025, 'type': 'fall'})
+            intf.create_edge(dri, ['InterventionOpen', 'Node', 'name'], ['Hos', 'Node', 'name'], 'REACHES',
+                             {'mood': 0, 'resources': -0.8, 'modm': -0.25, 'modc': -0.35, 'type': 'fall'})
+            intf.create_edge(dri, ['InterventionOpen', 'Node', 'name'], ['Home', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.2, 'mood': 0, 'type': 'inactive'})
+            intf.create_edge(dri, ['Home', 'Node', 'name'], ['InterventionOpen', 'Node', 'name'], 'REACHES',
+                             {'resources': -0.05, 'mood': 0.2, 'allowed': specification.Open_Intervention_Limits,
+                              'ref': 'False', 'type': 'medical'})
 
     @staticmethod
     def generate_population(dri, ps):
@@ -174,7 +140,7 @@ class Reset(SPmodelling.Reset.Reset):
         Generates the required number of agents split between carers and patients and starts them at the Home node.
         Builds social and care links between agents.
 
-        :param dir: neo4j database driver
+        :param dri: neo4j database driver
         :param ps: population size
 
         :return: None
@@ -188,9 +154,7 @@ class Reset(SPmodelling.Reset.Reset):
                 ca.generator(dri, [2, 2, 4, [3, 0, 0, 1, 0], 2, 8])
         elif specification.carers:
             for j in range(cps):
-                ses = dri.session()
-                ses.run("CREATE (a:Carer {id:{j_id}, resources:20})", j_id=j)
-                ses.close()
+                intf.add_node(dri, [j, 'Carer', 'id'], {'resources': 20})
         if not specification.carers:
             pps = ps
         for i in range(pps):
@@ -234,16 +198,11 @@ class Reset(SPmodelling.Reset.Reset):
 
         :return:None
         """
-        ses = dri.session()
-        ses.run("CREATE (a:Service {name:'care', resources:0.5, capacity:5, load:0, date:0})")
-        ses.run("CREATE (a:Service {name:'intervention', resources:-0.8, mobility:0.3, capacity:2, load:0, date:0})")
-        ses.run("MATCH (s:Service), (n:Node) "
-                "WHERE s.name='care' AND n.name='Home' "
-                "CREATE (s)-[r:PROVIDE]->(n)")
-        ses.run("MATCH (s:Service), (n:Node) "
-                "WHERE s.name='intervention' AND n.name='Hos' "
-                "CREATE (s)-[r:PROVIDE]->(n)")
-        ses.close()
+        intf.add_node(dri, ['care', 'Service', 'name'], {'resources': 0.5, 'capacity': 5, 'load': 0, 'date': 0})
+        intf.add_node(dri, ['intervention', 'Service', 'name'], {'resources': -0.8, 'mobility': 0.3, 'capacity': 2,
+                                                                 'load': 0, 'date': 0})
+        intf.create_edge(dri, ['care', 'Service', 'name'], ['Home', 'Node', 'name'], 'PROVIDE')
+        intf.create_edge(dri, ['intervention', 'Service', 'name'], ['Hos', 'Node', 'name'], 'PROVIDE')
 
 
 # noinspection

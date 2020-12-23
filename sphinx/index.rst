@@ -12,16 +12,22 @@ Model for Mobility and Falls in Agents with Declining Mobility
 
    setup
    domain
+   -----------
+   Environment
+   -----------
    reset
    network
+   services
    ------
    Agents
    ------
    agent
    patient
-   carer
+   population
+   -------
+   Monitor
+   -------
    monitor
-   version0
 
 
 

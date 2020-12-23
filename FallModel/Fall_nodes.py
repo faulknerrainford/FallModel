@@ -126,10 +126,26 @@ class FallNode(SPmodelling.Node.Node):
     """
 
     def __init__(self, name, capacity=None, duration=None, queue=None):
+        """
+        Node must be named so it can be identified in the database
+
+        :param name: Unique node name
+        :param capacity: if applicable the maximum number of agents which can be located at the node
+        :param duration: if applicable the length of time an agent will spend at node
+        :param queue: if applicable the list of agents waiting at the node
+        """
         super(FallNode, self).__init__(name, capacity, duration, queue)
         self.servicemodel = "alternate"
 
     def available_services(self, dri):
+        """
+        Checks for services enabled by this node. It filters this list by the load and capacity measures used in the
+        fall model
+
+        :param dri: neo4j database read or write transaciton
+
+        :return: list of available services
+        """
         services = super(FallNode, self).available_services(dri)
         serv = []
         for service in services:
@@ -211,6 +227,12 @@ class HomeNode(FallNode):
     """
 
     def __init__(self, name="Home", mc=-0.015, rr=0.3, moc=-0.02):
+        """
+        :param name: Unique name of node, default to Home (appropriate if there is only one)
+        :param mc: Mobility change, this will be added to agent mobility every time step the agent is at the node
+        :param rr: recovery rate, this will be added to agent energy every time step the agent is at the node
+        :param moc: mood change, this will be added to agent mood every time step the agent is at the node
+        """
         super(HomeNode, self).__init__(name, queue={})
         self.mob_change = mc
         self.recover_rate = rr
@@ -299,6 +321,12 @@ class HosNode(FallNode):
     """
 
     def __init__(self, name="Hos", mc=-0.1, rr=0.2, moc=-0.05):
+        """
+        :param name: Unique name of node, default to Hos (appropriate if there is only one)
+        :param mc: Mobility change, this will be added to agent mobility every time step the agent is at the node
+        :param rr: recovery rate, this will be added to agent energy every time step the agent is at the node
+        :param moc: mood change, this will be added to agent mood every time step the agent is at the node
+        """
         super(HosNode, self).__init__(name, queue={})
         self.mob_change = mc
         self.recover_rate = rr
@@ -371,6 +399,9 @@ class GPNode(FallNode):
     """
 
     def __init__(self, name="GP"):
+        """
+        :param name: Unique name of node, default to GP (appropriate if there is only one)
+        """
         super(FallNode, self).__init__(name)
 
     def agents_ready(self, dri):
@@ -409,6 +440,9 @@ class SocialNode(FallNode):
     """
 
     def __init__(self, name="Social"):
+        """
+        :param name: Unique name of node, default to Social (appropriate if there is only one)
+        """
         super(FallNode, self).__init__(name)
 
     def agents_ready(self, dri):
@@ -430,6 +464,9 @@ class InterventionNode(FallNode):
     """
 
     def __init__(self, name="Intervention"):
+        """
+        :param name: Unique name of node, default to Intervention (appropriate if there is only one)
+        """
         super(FallNode, self).__init__(name)
 
     def agents_ready(self, dri):
@@ -480,6 +517,8 @@ class CareNode(SPmodelling.Node.Node):
     def __init__(self, name=None):
         """
         Sets up node name and data storage for monitor and analysis of system.
+
+        :param name: Unique name of node, default to Care (appropriate if there is only one)
         """
         self.name = "Care"
         self.run_name = None
