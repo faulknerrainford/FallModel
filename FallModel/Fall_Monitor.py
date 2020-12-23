@@ -9,7 +9,7 @@ from SPmodelling.Monitor import Monitor as SPMonitor
 import specification
 
 
-class Monitor(SPMonitor):
+class MassMonitor(SPMonitor):
     """
     Monitor class extends SPModelling Monitor. It is intended to monitor the database of the model and report and store
     summary statistics to enable later analysis. It records system interval, intervention interval, capacity of the
@@ -82,28 +82,30 @@ class Monitor(SPMonitor):
         self.x = 0
         self.y3storage = [2, 2, 2, 2, 2, 2, 2, 2, 2, 2]
 
-    def snapshot(self, txl, ctime):
+    def snapshot(self, dri, ctime):
         """
         Captures the current statistics of the system and updates graph grid, including average system interval,
         intervention interval, average number of falls at end of system interval and proportions of population in each
         population category.
 
-        :param txl: neo4j database write transaction
+        :param dri: neo4j database driver
         :param ctime: current timestep
 
         :return: None
         """
-        look = txl.run("MATCH (n:Node) "
+        look = dri.run("MATCH (n:Node) "
                        "WHERE n.name = {node} "
                        "RETURN n", node="Intervention")
         self.nrecord = look.values()
-        if super(Monitor, self).snapshot(txl, ctime):
+        if super(Monitor, self).snapshot(dri, ctime):
             # Update plot 1 - Int Cap
             # Update to track average number of each type of fall for people in care.
-            [mild, moderate, severe, agents_n] = txl.run("MATCH (n:Node) "
+            ses = dri.session()
+            [mild, moderate, severe, agents_n] = ses.run("MATCH (n:Node) "
                                                          "WHERE n.name={node} "
                                                          "RETURN n.mild, n.moderate, n.severe, n.agents",
                                                          node="Care").values()[0]
+            ses.close()
             if agents_n:
                 self.y11 = pylab.append(self.y11, mild / agents_n)
                 self.p11.set_data(self.t, self.y11)
@@ -124,9 +126,9 @@ class Monitor(SPMonitor):
                 self.y13 = pylab.append(self.y13, 0)
                 self.p13.set_data(self.t, self.y13)
             # Update plot 2 - Hos to Int
-            gaps = timesincedischarge(txl)
+            gaps = timesincedischarge(dri)
             if gaps:
-                hiint = mean(timesincedischarge(txl))
+                hiint = mean(timesincedischarge(dri))
                 self.y3storage = self.y3storage + [hiint]
                 if len(self.y3storage) >= 10:
                     self.y3storage = self.y3storage[-10:]
@@ -136,7 +138,7 @@ class Monitor(SPMonitor):
                     self.y = mean(self.y3storage)
                 self.p2.set_data(self.t, self.y2)
             # Update plot 3 - Start to Care
-            careint = intf.getnodevalue(txl, "Care", "interval", uid="name")
+            careint = intf.getnodevalue(dri, "Care", "interval", uid="name")
             if careint:
                 scint = careint
             else:
@@ -147,10 +149,12 @@ class Monitor(SPMonitor):
             self.p3.set_data(self.t, self.y3)
             # Update plot 4
             # Update plot showing distribution of well being in the general population.
-            wb = txl.run("MATCH (a:Agent)-[r:LOCATED]->(n:Node) "
+            ses = dri.session()
+            wb = ses.run("MATCH (a:Agent)-[r:LOCATED]->(n:Node) "
                          "WHERE NOT n.name={node} "
                          "RETURN a.wellbeing",
                          node="Care").values()
+            ses.close()
             wb = [val[0] for val in wb]
             healthy = wb.count("Healthy") / len(wb)
             at_risk = wb.count("At risk") / len(wb)
@@ -183,19 +187,21 @@ class Monitor(SPMonitor):
             if self.show:
                 plt.pause(0.0005)
 
-    def close(self, txc):
+    def close(self, dri):
         """
         Saves figure, figure data, logs of agents in system at end of run to the output directory given in Specification
         with name tag given in database.
 
-        :param txc: neo4j database write transaction
+        :param dri: neo4j database driver
 
         :return: None
         """
-        super(Monitor, self).close(txc)
-        runname = intf.getrunname(txc)
+        super(Monitor, self).close(dri)
+        runname = intf.getrunname(dri)
         print(self.clock)
-        logs = txc.run("MATCH (a:Agent) RETURN a.log").values()
+        ses = dri.session()
+        logs = ses.run("MATCH (a:Agent) RETURN a.log").values()
+        ses.close()
         pickle_lout = open(specification.savedirectory + "logs_" + runname + ".p", "wb")
         pickle.dump(logs, pickle_lout)
         pickle_lout.close()

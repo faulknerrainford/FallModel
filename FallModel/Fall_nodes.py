@@ -10,11 +10,11 @@ from FallModel.Fall_agent import Patient
 from FallModel.Fall_agent import logging as ag_logging
 
 
-def fall_or_al_check(tx, agent, edges):
+def fall_or_al_check(dri, agent, edges):
     """
     Check if agent is directed to assisted living or if they have a fall, in the case of a fall the fall is classified.
 
-    :param tx: neo4j database write transaction
+    :param dri: neo4j database driver
     :param agent: id, label and type of id for agent to check
     :param edges: list of non-eliminated outgoing edges from the node
 
@@ -23,7 +23,7 @@ def fall_or_al_check(tx, agent, edges):
     if type(edges) != list:
         edges = [edges]
     destinations = [edge.end_node for edge in edges]
-    mob = intf.get_node_value(tx, agent, "mob")
+    mob = intf.get_node_value(dri, agent, "mob")
     view = edges
     # If Care in options check for zero mobility
     if "Care" in destinations and mob <= 0:
@@ -34,51 +34,51 @@ def fall_or_al_check(tx, agent, edges):
         if (r := random()) < np.exp(-3 * mob):
             view = [edge for edge in edges if edge.end_node["name"] == "Hos"]
             # Mark a severe fall has happened in agent log
-            ag_logging(tx, agent, "Severe Fall, " + str(intf.gettime(tx)))
-            intf.update_agent(tx, agent, "wellbeing", "Fallen")
+            ag_logging(dri, agent, "Severe Fall, " + str(intf.gettime(dri)))
+            intf.update_agent(dri, agent, "wellbeing", "Fallen")
         elif r < np.exp(-3 * (mob - 0.1 * mob)):
             view = [edge for edge in edges if edge.end_node["name"] == "GP"]
             # Mark a moderate fall has happened in agent log
-            ag_logging(tx, agent, "Moderate Fall, " + str(intf.gettime(tx)))
-            intf.update_agent(tx, agent, "wellbeing", "Fallen")
+            ag_logging(dri, agent, "Moderate Fall, " + str(intf.gettime(dri)))
+            intf.update_agent(dri, agent, "wellbeing", "Fallen")
         elif r < np.exp(-3 * (mob - 0.3 * mob)):
             # Mark a mild fall has happened in agent log
-            ag_logging(tx, agent, "Mild Fall, " + str(intf.gettime(tx)))
-            intf.updateagent(tx, agent, "wellbeing", "Fallen")
+            ag_logging(dri, agent, "Mild Fall, " + str(intf.gettime(dri)))
+            intf.updateagent(dri, agent, "wellbeing", "Fallen")
     return view
 
 
-def duration_update(tx, agent, node, duration):
+def duration_update(dri, agent, node, duration):
     """
     Update agent values after staying at a node for multiple time steps.
 
-    :param tx: neo4j database write transaction
+    :param dri: neo4j database driver
     :param agent: id, label and id type
     :param node: id, label and id type
     :param duration: time spent at node
 
     :return: None
     """
-    mob_change = intf.get_node_value(tx, node, "modm")
-    mood_change = intf.get_node_value(tx, node, "modmood")
-    recover_rate = intf.get_node_value(tx, node, "resources")
-    intf.update_agent(tx, agent, "mob", npr.normal((duration * mob_change), 1, 1))
-    intf.update_agent(tx, agent, "mood", npr.normal((duration * mood_change), 1, 1))
-    intf.update_agent(tx, agent, "resources", npr.normal((duration * recover_rate), 1, 1))
+    mob_change = intf.get_node_value(dri, node, "modm")
+    mood_change = intf.get_node_value(dri, node, "modmood")
+    recover_rate = intf.get_node_value(dri, node, "resources")
+    intf.update_agent(dri, agent, "mob", npr.normal((duration * mob_change), 1, 1))
+    intf.update_agent(dri, agent, "mood", npr.normal((duration * mood_change), 1, 1))
+    intf.update_agent(dri, agent, "resources", npr.normal((duration * recover_rate), 1, 1))
 
 
-def predict_fall(tx, agent, mob_change):
+def predict_fall(dri, agent, mob_change):
     """
     Predicts when the agent will next fall by predicting a next fall and then checking time between for fall
     predictions based on changes to mobility.
 
-    :param tx: neo4j database read transaction
+    :param dri: neo4j database driver
     :param agent: id, label and id type
     :param mob_change: the amount per time step that mobility changes at that location
 
     :return: fall_time, fall_type
     """
-    mob = intf.get_node_value(tx, agent, "mob")
+    mob = intf.get_node_value(dri, agent, "mob")
     (fall_time, fall_type) = next_fall(mob)
     t = 1
     while t < fall_time:
@@ -129,27 +129,27 @@ class FallNode(SPmodelling.Node.Node):
         super(FallNode, self).__init__(name, capacity, duration, queue)
         self.servicemodel = "alternate"
 
-    def available_services(self, tx):
-        services = super(FallNode, self).available_services(tx)
+    def available_services(self, dri):
+        services = super(FallNode, self).available_services(dri)
         serv = []
         for service in services:
-            serv_cap = intf.get_node_value(tx, service, "capacity")
-            serv_load = intf.get_node_value(tx, service, "load")
+            serv_cap = intf.get_node_value(dri, service, "capacity")
+            serv_load = intf.get_node_value(dri, service, "load")
             if serv_cap > serv_load:
                 serv.append(service)
         return serv
 
-    def agents_ready(self, tx):
+    def agents_ready(self, dri):
         """
         Checks for unqueued agents at a node with a queue and queues them, it also moves agents ready to move.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
 
         :return: None
         """
-        super(FallNode, self).agents_ready(tx)
+        super(FallNode, self).agents_ready(dri)
 
-    def agent_perception(self, tx, agent, dest=None, wait_time=None):
+    def agent_perception(self, dri, agent, dest=None, wait_time=None):
         """
         Determine based on the node the agent is located at what an agent can see in terms of options to move. It
         filters out overloaded nodes with no spare capacity, edges which require a referral the agent does not have,
@@ -158,48 +158,48 @@ class FallNode(SPmodelling.Node.Node):
         mobility, see Fall algorithm for detection and classification of falls. Severe falls cause the agent to be
         directed to the Hospital, Moderate falls direct to the GP.
 
-        :param tx: neo4j database write transaction.
+        :param dri: neo4j database driver.
         :param agent: The agent object returned from the database via the interface
         :param dest: (Optional) used for agents whose destination has been predicted, passes the predicted destination
         :param wait_time: (Optional) integer, time the agent has been waiting at current node for updating the agent
 
         :return: view, agents filtered perception of their surroundings
         """
-        view = super(FallNode, self).agent_perception(tx, agent, dest, wait_time)
+        view = super(FallNode, self).agent_perception(dri, agent, dest, wait_time)
         if type(view) == list:
             for edge in view:
                 if "allowed" in edge.keys():
-                    referral = intf.get_node_value(tx, agent, "referral")
+                    referral = intf.get_node_value(dri, agent, "referral")
                     if not referral and edge["ref"]:
                         view.remove(edge)
                     else:
                         allowed = edge["allowed"]
-                        wellbeing = intf.get_node_value(tx, agent, "wellbeing")
+                        wellbeing = intf.get_node_value(dri, agent, "wellbeing")
                         if wellbeing not in allowed:
                             view.remove(edge)
         else:
             if "allowed" in view.keys():
-                referral = intf.get_node_value(tx, agent, "referral")
+                referral = intf.get_node_value(dri, agent, "referral")
                 if not referral:
                     view = []
                 else:
                     allowed = view["allowed"].split(',')
-                    wellbeing = intf.get_node_value(tx, agent, "wellbeing")
+                    wellbeing = intf.get_node_value(dri, agent, "wellbeing")
                     if wellbeing not in allowed:
                         view = []
-        return fall_or_al_check(tx, agent, view)
+        return fall_or_al_check(dri, agent, view)
 
-    def agent_prediction(self, tx, agent):
+    def agent_prediction(self, dri, agent):
         """
         For nodes with queues this function is specialised to add the agents to the queue with a wait time and
         destination. Does nothing in this form.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent: Agent node object returned by interface
 
         :return: None
         """
-        return super(FallNode, self).agent_prediction(tx, agent)
+        return super(FallNode, self).agent_prediction(dri, agent)
         # Node specific only, no general node prediction assume no queue as default, thus no prediction needed
 
 
@@ -216,31 +216,31 @@ class HomeNode(FallNode):
         self.recover_rate = rr
         self.mood_change = moc
 
-    def agents_ready(self, tx, agent_class="Patient"):
+    def agents_ready(self, dri, agent_class="Patient"):
         """
         If there are agents ready at this time step the node checks the nodes mobility, confidence and resources
         modifiers. It uses those values to update the agent based on the agents duration at the home node. After this
         agents are processed as usual for a fall node.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent_class: (Optional) the class of agents this node expects to find and process.
 
         :return: None
         """
         # Apply changes from wait_time not dest
-        agents = intf.get_node_agents(tx, [self.name, "Node", "name"])
-        clock = intf.get_time(tx)
+        agents = intf.get_node_agents(dri, [self.name, "Node", "name"])
+        clock = intf.get_time(dri)
         if clock in self.queue.keys():
             for ag in agents:
                 if ag[0] in self.queue[clock].keys() and self.queue[clock][ag[0]][1]:
-                    duration_update(tx, ag, [self.name, "Node", "name"],
+                    duration_update(dri, ag, [self.name, "Node", "name"],
                                     self.queue[clock][ag[0]][1])
-        super(HomeNode, self).agents_ready(tx)
+        super(HomeNode, self).agents_ready(dri)
 
-    def agent_perception(self, tx, agent, dest=None, waittime=None):
-        return super(HomeNode, self).agent_perception(tx, agent, dest, waittime)
+    def agent_perception(self, dri, agent, dest=None, waittime=None):
+        return super(HomeNode, self).agent_perception(dri, agent, dest, waittime)
 
-    def agent_prediction(self, tx, agent):
+    def agent_prediction(self, dri, agent):
         """
         We check the time it will take the agent to have the recovered the minimum resources required to move to a
         different node other than by a fall. We then predict when and kind of the agents next fall. We compare this with
@@ -251,23 +251,23 @@ class HomeNode(FallNode):
         they have a mild fall we update their wellbeing to "Fallen" as well. It the agent has sufficient resources to
         act immediately then they are added to the top of the queue with no duration or destination.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent: Agent node object returned by interface
 
         :return: None
         """
-        view = intf.perception(tx, agent)[1:]
+        view = intf.perception(dri, agent)[1:]
         min_resources = min(
             [edge["resources"] for edge in view if edge["resources"]] + [edge.end_node["resources"] for edge in view
                                                                          if edge.end_node["resources"]])
-        ag_resources = intf.get_node_value(tx, agent, "resources")
+        ag_resources = intf.get_node_value(dri, agent, "resources")
         recovery_time = (min_resources - ag_resources) / self.recover_rate
         if ag_resources < min_resources:
-            (fall_time, fall_type) = predict_fall(tx, agent, self.mob_change)
+            (fall_time, fall_type) = predict_fall(dri, agent, self.mob_change)
             if fall_time < recovery_time and not fall_type == "Mild" and fall_type:
                 # Add agent to queue with fall
-                queue_time = fall_time + intf.get_time(tx)
-                intf.update_agent(tx, agent, "wellbeing", "Fallen")
+                queue_time = fall_time + intf.get_time(dri)
+                intf.update_agent(dri, agent, "wellbeing", "Fallen")
                 if queue_time not in self.queue.keys():
                     self.queue[queue_time] = {}
                 if fall_type == "Severe":
@@ -275,21 +275,21 @@ class HomeNode(FallNode):
                 else:
                     dest = [edge for edge in view if edge.end_node["name"] == "GP"]
                 self.queue[queue_time][agent[0]] = (dest[0], fall_time)
-                ag_logging(tx, agent, fall_type + " Fall, " + str(queue_time))
+                ag_logging(dri, agent, fall_type + " Fall, " + str(queue_time))
             else:
                 # Add agent to queue with recovery
                 if fall_type == "Mild":
-                    queue_time = fall_time + intf.get_time(tx)
-                    ag_logging(tx, agent, fall_type + " Fall, " + str(queue_time))
-                    intf.update_agent(tx, agent, "wellbeing", "Fallen")
-                if recovery_time + intf.get_time(tx) not in self.queue.keys():
-                    self.queue[recovery_time + intf.gettime(tx)] = {}
-                self.queue[recovery_time + intf.get_time(tx)][agent[0]] = (None, recovery_time)
+                    queue_time = fall_time + intf.get_time(dri)
+                    ag_logging(dri, agent, fall_type + " Fall, " + str(queue_time))
+                    intf.update_agent(dri, agent, "wellbeing", "Fallen")
+                if recovery_time + intf.get_time(dri) not in self.queue.keys():
+                    self.queue[recovery_time + intf.gettime(dri)] = {}
+                self.queue[recovery_time + intf.get_time(dri)][agent[0]] = (None, recovery_time)
         else:
             # Add agent to next time step - no wait_time or dest
-            if intf.get_time(tx) + 1 not in self.queue.keys():
-                self.queue[intf.get_time(tx) + 1] = {}
-            self.queue[intf.get_time(tx) + 1][agent[0]] = (None, None)
+            if intf.get_time(dri) + 1 not in self.queue.keys():
+                self.queue[intf.get_time(dri) + 1] = {}
+            self.queue[intf.get_time(dri) + 1][agent[0]] = (None, None)
 
 
 class HosNode(FallNode):
@@ -304,40 +304,40 @@ class HosNode(FallNode):
         self.recover_rate = rr
         self.mood_change = moc
 
-    def agents_ready(self, tx):
+    def agents_ready(self, dri):
         """
         If there are agents ready at this time step the node checks the nodes mobility, confidence and resources
         modifiers. It uses those values to update the agent based on the agents duration at the Hospital node. It also
         updates the agent to give it a referral and logs its discharge from hospital. After this agents are processed
         as usual for a fall node.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
 
         :return:None
         """
         # Apply changes from wait_time not dest
-        agents = intf.get_node_agents(tx, [self.name, "Node", "name"])
-        clock = intf.get_time(tx)
+        agents = intf.get_node_agents(dri, [self.name, "Node", "name"])
+        clock = intf.get_time(dri)
         if clock in self.queue.keys() and agents:
             for ag in agents:
                 if ag[0] in self.queue[clock].keys() and self.queue[clock][ag[0]][1]:
-                    self.mob_change = intf.get_node_value(tx, [self.name, "Node", "name"], "modm")
-                    self.mood_change = intf.get_node_value(tx, [self.name, "Node", "name"], "modmood")
-                    self.recover_rate = intf.get_node_value(tx, [self.name, "Node", "name"], "resources")
-                    intf.update_agent(tx, ag, "mob",
+                    self.mob_change = intf.get_node_value(dri, [self.name, "Node", "name"], "modm")
+                    self.mood_change = intf.get_node_value(dri, [self.name, "Node", "name"], "modmood")
+                    self.recover_rate = intf.get_node_value(dri, [self.name, "Node", "name"], "resources")
+                    intf.update_agent(dri, ag, "mob",
                                       npr.normal((self.queue[clock][ag[0]][1] * self.mob_change), 1, 1)[0])
-                    intf.update_agent(tx, ag, "mood",
+                    intf.update_agent(dri, ag, "mood",
                                       npr.normal((self.queue[clock][ag[0]][1] * self.mood_change), 1, 1)[0])
-                    intf.update_agent(tx, ag, "resources",
+                    intf.update_agent(dri, ag, "resources",
                                       self.queue[clock][ag[0]][1] * self.recover_rate)
-                    intf.update_agent(tx, ag, "referral", True)
-                    ag_logging(tx, ag, "Hos discharge, " + str(intf.get_time(tx)))
-        super(HosNode, self).agents_ready(tx)
+                    intf.update_agent(dri, ag, "referral", True)
+                    ag_logging(dri, ag, "Hos discharge, " + str(intf.get_time(dri)))
+        super(HosNode, self).agents_ready(dri)
 
-    def agent_perception(self, tx, agent, dest=None, wait_time=None):
-        return super(HosNode, self).agent_perception(tx, agent, dest, wait_time)
+    def agent_perception(self, dri, agent, dest=None, wait_time=None):
+        return super(HosNode, self).agent_perception(dri, agent, dest, wait_time)
 
-    def agent_prediction(self, tx, agent):
+    def agent_prediction(self, dri, agent):
         """
         Logs the agent being admitted to hospital and then calculates mean for poisson distribution to predict the
         duration of the agents stay.
@@ -347,15 +347,15 @@ class HosNode(FallNode):
         The agent is added to the queue at t = current_time + predicted_duration
         with destination home.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent: agent database object returned from Interface
 
         :return: None
         """
-        view = super(HosNode, self).agent_prediction(tx, agent)[1:]
-        clock = intf.get_time(tx)
-        ag_logging(tx, agent, "Hos admitted, " + str(clock))
-        mob = intf.get_node_value(tx, agent, "mob")
+        view = super(HosNode, self).agent_prediction(dri, agent)[1:]
+        clock = intf.get_time(dri)
+        ag_logging(dri, agent, "Hos admitted, " + str(clock))
+        mob = intf.get_node_value(dri, agent, "mob")
         mean = -9 * min(mob, 1) + 14
         time = npr.poisson(mean, 1)[0]
         if clock + time not in self.queue.keys():
@@ -373,32 +373,32 @@ class GPNode(FallNode):
     def __init__(self, name="GP"):
         super(FallNode, self).__init__(name)
 
-    def agents_ready(self, tx):
-        super(FallNode, self).agents_ready(tx)
+    def agents_ready(self, dri):
+        super(FallNode, self).agents_ready(dri)
 
-    def agent_perception(self, tx, agent, dest=None, wait_time=None):
+    def agent_perception(self, dri, agent, dest=None, wait_time=None):
         """
         Add additional filters to direct the agent to Hospital if mobility below 0.6 and home otherwise. If the agent
         is sent home but have mobility below 0.85 they are given a referral.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent: agent database object returned by interface
         :param dest: (Optional) Not used here
         :param wait_time: (Optional) Not used here
 
         :return: perception with either Home or Hospital as the only destination
         """
-        view = super(GPNode, self).agent_perception(tx, agent, dest, wait_time)
-        mob = intf.get_node_value(tx, agent, "mob")
+        view = super(GPNode, self).agent_perception(dri, agent, dest, wait_time)
+        mob = intf.get_node_value(dri, agent, "mob")
         if mob < 0.6:
             view = [edge for edge in view if edge.end_node["name"] == "Hos"]
         else:
             view = [edge for edge in view if edge.end_node["name"] == "Home"]
             if mob < 0.85:
-                intf.update_agent(tx, agent, "referral", True)
+                intf.update_agent(dri, agent, "referral", True)
         return view
 
-    def agent_prediction(self, tx, agent):
+    def agent_prediction(self, dri, agent):
         return None
         # No queue so prediction not needed
 
@@ -411,14 +411,14 @@ class SocialNode(FallNode):
     def __init__(self, name="Social"):
         super(FallNode, self).__init__(name)
 
-    def agents_ready(self, tx):
-        super(FallNode, self).agents_ready(tx)
+    def agents_ready(self, dri):
+        super(FallNode, self).agents_ready(dri)
 
-    def agent_perception(self, tx, agent, dest=None, wait_time=None):
-        view = super(SocialNode, self).agent_perception(tx, agent, dest, wait_time)
+    def agent_perception(self, dri, agent, dest=None, wait_time=None):
+        view = super(SocialNode, self).agent_perception(dri, agent, dest, wait_time)
         return view
 
-    def agent_prediction(self, tx, agent):
+    def agent_prediction(self, dri, agent):
         return None
         # No queue so prediction not needed
 
@@ -432,41 +432,41 @@ class InterventionNode(FallNode):
     def __init__(self, name="Intervention"):
         super(FallNode, self).__init__(name)
 
-    def agents_ready(self, tx):
+    def agents_ready(self, dri):
         """
         Extends normal Fall node by updating the load value after processing agents.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
 
         :return: None
         """
-        super(FallNode, self).agents_ready(tx)
-        load = len(intf.get_node_agents(tx, [self.name, "Node", "name"]))
-        intf.update_node(tx, [self.name, "Node", "name"], "load", load)
+        super(FallNode, self).agents_ready(dri)
+        load = len(intf.get_node_agents(dri, [self.name, "Node", "name"]))
+        intf.update_node(dri, [self.name, "Node", "name"], "load", load)
 
-    def agent_perception(self, tx, agent, dest=None, wait_time=None):
+    def agent_perception(self, dri, agent, dest=None, wait_time=None):
         """
         Extends normal Fall Node function by logging the agents attendance at the intervention. It checks if the agent
         has mobility below 0.6, if they do the agent is given a referral (if they didn't have one) else if they have a
         referral is removed.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent: agent database object returned from Interface
         :param dest: (Optional) Not used here
         :param wait_time: (Optional) Not used here
 
         :return: view from Fall Node agent_perception
         """
-        view = super(InterventionNode, self).agent_perception(tx, agent, dest, wait_time)
-        ag_logging(tx, agent, self.name + ", " + str(intf.get_time(tx)))
-        mob = intf.get_node_value(tx, agent, "mob")
+        view = super(InterventionNode, self).agent_perception(dri, agent, dest, wait_time)
+        ag_logging(dri, agent, self.name + ", " + str(intf.get_time(dri)))
+        mob = intf.get_node_value(dri, agent, "mob")
         if mob > 0.6:
-            intf.update_agent(tx, agent, "referral", "False")
+            intf.update_agent(dri, agent, "referral", "False")
         else:
-            intf.update_agent(tx, agent, "referral", "True")
+            intf.update_agent(dri, agent, "referral", "True")
         return view
 
-    def agent_prediction(self, tx, agent):
+    def agent_prediction(self, dri, agent):
         return None
         # No queue so prediction not needed
 
@@ -489,22 +489,22 @@ class CareNode(SPmodelling.Node.Node):
         self.moderate = 0
         self.severe = 0
 
-    def agents_ready(self, tx):
+    def agents_ready(self, dri):
         """
         Saves out the log strings of all agents at the Care Node using the runname acquired from the database. Updates
         its own track of average number of falls and length of interval using information in agent logs. Also updates
         the total number of agents that have left the system. It then deletes the agents at the Care node.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
 
         :return: None
         """
-        agents = intf.get_node_agents(tx, ["Care", "Node", "name"])
+        agents = intf.get_node_agents(dri, ["Care", "Node", "name"])
         if not self.run_name:
-            self.run_name = intf.get_run_name(tx)
+            self.run_name = intf.get_run_name(dri)
         file = open(specification.savedirectory + "AgentLogscareag_" + self.run_name + ".p", 'ab')
         for agent in agents:
-            log = intf.get_node_value(tx, agent, "log")
+            log = intf.get_node_value(dri, agent, "log")
             agl = parselog(log)
             agint = agl[-1][1] - agl[0][1]
             self.interval = (self.interval * self.agents + agint) / (self.agents + 1)
@@ -516,21 +516,21 @@ class CareNode(SPmodelling.Node.Node):
                 if entry[0] == "Severe Fall":
                     self.severe = self.severe + 1
             self.agents = self.agents + 1
-            intf.update_node(tx, ["Care", "Node", "name"], "interval", self.interval)
-            intf.update_node(tx, ["Care", "Node", "name"], "mild", self.mild)
-            intf.update_node(tx, ["Care", "Node", "name"], "moderate", self.moderate)
-            intf.update_node(tx, ["Care", "Node", "name"], "severe", self.severe)
-            intf.update_node(tx, ["Care", "Node", "name"], "agents", self.agents)
+            intf.update_node(dri, ["Care", "Node", "name"], "interval", self.interval)
+            intf.update_node(dri, ["Care", "Node", "name"], "mild", self.mild)
+            intf.update_node(dri, ["Care", "Node", "name"], "moderate", self.moderate)
+            intf.update_node(dri, ["Care", "Node", "name"], "severe", self.severe)
+            intf.update_node(dri, ["Care", "Node", "name"], "agents", self.agents)
             aglog = "Agent " + str(agent[0]) + ": " + log
             pickle.dump(aglog, file)
-            intf.delete_agent(tx, agent)
+            intf.delete_agent(dri, agent)
         # file.close()
         return None
 
-    def agent_perception(self, tx, agent, dest=None, wait_time=None):
+    def agent_perception(self, dri, agent, dest=None, wait_time=None):
         pass
 
-    def agent_prediction(self, tx, agent):
+    def agent_prediction(self, dri, agent):
         pass
 
     # While Care is not actually a node it does have an agents_ready function which is triggered on arrival.
@@ -551,36 +551,36 @@ class HomeNodeV0(FallNode):
         self.recoverrate = rr
         self.confchange = cc
 
-    def agents_ready(self, tx):
+    def agents_ready(self, dri):
         """
         If there are agents ready at this time step the node checks the nodes mobility, confidence and resources
         modifiers. It uses those values to update the agent based on the agents duration at the home node. After this
         agents are processed as usual for a fall node.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
 
         :return: None
         """
         # Apply changes from waittime not dest
-        agents = intf.getnodeagents(tx, self.name, "name")
-        clock = intf.gettime(tx)
+        agents = intf.getnodeagents(dri, self.name, "name")
+        clock = intf.gettime(dri)
         if clock in self.queue.keys():
             for ag in agents:
                 if ag["id"] in self.queue[clock].keys() and self.queue[clock][ag["id"]][1]:
-                    self.mobchange = intf.getnodevalue(tx, self.name, "modm", "Node", "name")
-                    self.confchange = intf.getnodevalue(tx, self.name, "modc", "Node", "name")
-                    self.recoverrate = intf.getnodevalue(tx, self.name, "resources", "Node", "name")
+                    self.mobchange = intf.getnodevalue(dri, self.name, "modm", "Node", "name")
+                    self.confchange = intf.getnodevalue(dri, self.name, "modc", "Node", "name")
+                    self.recoverrate = intf.getnodevalue(dri, self.name, "resources", "Node", "name")
                     intf.updateagent(ag["id"], "mob",
                                      npr.normal((self.queue[clock][ag["id"]][1] * self.mobchange), 1, 1))
                     intf.updateagent(ag["id"], "conf",
                                      npr.normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1))
                     intf.updateagent(ag["id"], "resources", self.queue[clock][ag["id"]][1] * self.recoverrate)
-        super(HomeNodeV0, self).agents_ready(tx, intf)
+        super(HomeNodeV0, self).agents_ready(dri, intf)
 
-    def agentperception(self, tx, agent, dest=None, waittime=None):
-        return super(HomeNodeV0, self).agentperception(tx, agent, dest, waittime)
+    def agentperception(self, dri, agent, dest=None, waittime=None):
+        return super(HomeNodeV0, self).agentperception(dri, agent, dest, waittime)
 
-    def agentprediction(self, tx, agent):
+    def agentprediction(self, dri, agent):
         """
         We check the time it will take the agent to have the recovered the minimum resources required to move to a
         different node other than by a fall. We then predict when and kind of the agents next fall. We compare this with
@@ -591,12 +591,12 @@ class HomeNodeV0(FallNode):
         they have a mild fall we update their wellbeing to "Fallen" as well. It the agent has sufficient resources to
         act immediately then they are added to the top of the queue with no duration or destination.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent: Agent node object returned by interface
 
         :return: None
         """
-        view = intf.perception(tx, agent["id"])[1:]
+        view = intf.perception(dri, agent["id"])[1:]
         minresources = min([edge.end_node["resources"] for edge in view if edge.end_node["resources"]])
         recoverytime = (minresources - agent["resources"]) / self.recoverrate
         if agent["resources"] < minresources:
@@ -611,35 +611,35 @@ class HomeNodeV0(FallNode):
                 t = t + 1
             if falltime < recoverytime and not falltype == "Mild":
                 # Add agent to queue with fall
-                queuetime = falltime + intf.gettime(tx)
-                intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
+                queuetime = falltime + intf.gettime(dri)
+                intf.updateagent(dri, agent["id"], "wellbeing", "Fallen")
                 if queuetime not in self.queue.keys():
                     self.queue[queuetime] = {}
                 if falltype == "Severe":
                     dest = [edge for edge in view if edge.end_node["name"] == "Hos"]
                     self.queue[queuetime][agent["id"]] = (dest[0], falltime)
                     ag = Patient(agent["id"])
-                    ag.logging(tx, "Severe Fall, " + str(queuetime))
+                    ag.logging(dri, "Severe Fall, " + str(queuetime))
                 elif falltype == "Moderate":
                     dest = [edge for edge in view if edge.end_node["name"] == "GP"]
                     self.queue[queuetime][agent["id"]] = (dest[0], falltime)
                     ag = Patient(agent["id"])
-                    ag.logging(tx, "Moderate Fall, " + str(queuetime))
+                    ag.logging(dri, "Moderate Fall, " + str(queuetime))
             else:
                 # Add agent to queue with recovery
                 if falltype == "Mild":
-                    queuetime = falltime + intf.gettime(tx)
+                    queuetime = falltime + intf.gettime(dri)
                     ag = Patient(agent["id"])
-                    ag.logging(tx, "Mild Fall, " + str(queuetime))
-                    intf.updateagent(tx, agent["id"], "wellbeing", "Fallen")
-                if recoverytime + intf.gettime(tx) not in self.queue.keys():
-                    self.queue[recoverytime + intf.gettime(tx)] = {}
-                self.queue[recoverytime + intf.gettime(tx)][agent["id"]] = (None, recoverytime)
+                    ag.logging(dri, "Mild Fall, " + str(queuetime))
+                    intf.updateagent(dri, agent["id"], "wellbeing", "Fallen")
+                if recoverytime + intf.gettime(dri) not in self.queue.keys():
+                    self.queue[recoverytime + intf.gettime(dri)] = {}
+                self.queue[recoverytime + intf.gettime(dri)][agent["id"]] = (None, recoverytime)
         else:
             # Add agent to next time step - no waittime or dest
-            if intf.gettime(tx) + 1 not in self.queue.keys():
-                self.queue[intf.gettime(tx) + 1] = {}
-            self.queue[intf.gettime(tx) + 1][agent["id"]] = (None, None)
+            if intf.gettime(dri) + 1 not in self.queue.keys():
+                self.queue[intf.gettime(dri) + 1] = {}
+            self.queue[intf.gettime(dri) + 1][agent["id"]] = (None, None)
 
     @staticmethod
     def predictfall(mobility):
@@ -682,40 +682,40 @@ class HosNodeV0(FallNode):
         self.recoverrate = rr
         self.confchange = cc
 
-    def agents_ready(self, tx):
+    def agents_ready(self, dri):
         """
         If there are agents ready at this time step the node checks the nodes mobility, confidence and resources
         modifiers. It uses those values to update the agent based on the agents duration at the Hospital node. It also
         updates the agent to give it a referral and logs its discharge from hospital. After this agents are processed
         as usual for a fall node.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
 
         :return:None
         """
         # Apply changes from waittime not dest
-        agents = intf.getnodeagents(tx, self.name)
-        clock = intf.gettime(tx)
+        agents = intf.getnodeagents(dri, self.name)
+        clock = intf.gettime(dri)
         if clock in self.queue.keys() and agents:
             for ag in agents:
                 if ag["id"] in self.queue[clock].keys() and self.queue[clock][ag["id"]][1]:
-                    self.mobchange = intf.getnodevalue(tx, self.name, "modm", "Node", "name")
-                    self.confchange = intf.getnodevalue(tx, self.name, "modc", "Node", "name")
-                    self.recoverrate = intf.getnodevalue(tx, self.name, "resources", "Node", "name")
-                    intf.updateagent(tx, ag["id"], "mob",
+                    self.mobchange = intf.getnodevalue(dri, self.name, "modm", "Node", "name")
+                    self.confchange = intf.getnodevalue(dri, self.name, "modc", "Node", "name")
+                    self.recoverrate = intf.getnodevalue(dri, self.name, "resources", "Node", "name")
+                    intf.updateagent(dri, ag["id"], "mob",
                                      npr.normal((self.queue[clock][ag["id"]][1] * self.mobchange), 1, 1)[0])
-                    intf.updateagent(tx, ag["id"], "conf",
+                    intf.updateagent(dri, ag["id"], "conf",
                                      npr.normal((self.queue[clock][ag["id"]][1] * self.confchange), 1, 1)[0])
-                    intf.updateagent(tx, ag["id"], "resources", self.queue[clock][ag["id"]][1] * self.recoverrate)
-                    intf.updateagent(tx, ag["id"], "referral", True)
+                    intf.updateagent(dri, ag["id"], "resources", self.queue[clock][ag["id"]][1] * self.recoverrate)
+                    intf.updateagent(dri, ag["id"], "referral", True)
                     agent = Patient(ag["id"])
-                    agent.logging(tx, "Hos discharge, " + str(intf.gettime(tx)))
-        super(HosNodeV0, self).agents_ready(tx, intf)
+                    agent.logging(dri, "Hos discharge, " + str(intf.gettime(dri)))
+        super(HosNodeV0, self).agents_ready(dri, intf)
 
-    def agentperception(self, tx, agent, dest=None, waittime=None):
-        return super(HosNodeV0, self).agentperception(tx, agent, dest, waittime)
+    def agentperception(self, dri, agent, dest=None, waittime=None):
+        return super(HosNodeV0, self).agentperception(dri, agent, dest, waittime)
 
-    def agentprediction(self, tx, agent):
+    def agentprediction(self, dri, agent):
         """
         Logs the agent being admitted to hospital and then calculates mean for poisson distribution to predict the
         duration of the agents stay.
@@ -726,15 +726,15 @@ class HosNodeV0(FallNode):
         The agent is added to the queue at t = current_time + predicted_duration
         with destination home.
 
-        :param tx: neo4j database write transaction
+        :param dri: neo4j database driver
         :param agent: agent database object returned from Interface
 
         :return: None
         """
-        view = super(HosNodeV0, self).agentprediction(tx, agent)[1:]
-        clock = intf.gettime(tx)
+        view = super(HosNodeV0, self).agentprediction(dri, agent)[1:]
+        clock = intf.gettime(dri)
         ag = Patient(agent["id"])
-        ag.logging(tx, "Hos admitted, " + str(clock))
+        ag.logging(dri, "Hos admitted, " + str(clock))
         mean = min(-9 * min(agent["mob"], 1) + 14, -9 * (min(agent["conf_res"], 1) + min(agent["mob_res"], 1)) + 14)
         time = npr.poisson(mean, 1)[0]
         if clock + time not in self.queue.keys():
